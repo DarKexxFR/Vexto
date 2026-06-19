@@ -19,7 +19,11 @@ export const supabase = createClient<Database>(
       storage: Platform.OS === "web" ? undefined : AsyncStorage,
       autoRefreshToken: true,
       persistSession: true,
-      detectSessionInUrl: false,
+      // On web the OAuth / email-confirmation callback comes back as a URL on
+      // the same page, so Supabase must parse it to establish the session. On
+      // native there is no callback URL to read (deep links are handled
+      // manually in @/lib/auth), so we keep it off to avoid false positives.
+      detectSessionInUrl: Platform.OS === "web",
       flowType: "pkce",
     },
   },
