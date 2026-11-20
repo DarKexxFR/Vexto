@@ -20,7 +20,8 @@ export const supabase = createClient<Database>(
       storage: Platform.OS === "web" ? undefined : AsyncStorage,
       autoRefreshToken: isSupabaseConfigured,
       persistSession: true,
-      detectSessionInUrl: false,
+      // Web: finish OAuth / password-reset redirects (?code=…) on page load.
+      detectSessionInUrl: Platform.OS === "web",
       flowType: "pkce",
     },
   },
