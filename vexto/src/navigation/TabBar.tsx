@@ -17,10 +17,10 @@ interface TabConfig {
 
 const TABS: Record<keyof TabParamList, TabConfig> = {
   Home: { label: "Accueil", icon: "home-outline", iconActive: "home" },
-  Leaderboard: { label: "Classement", icon: "trophy-outline", iconActive: "trophy" },
+  Transit: { label: "Horaires", icon: "time-outline", iconActive: "time" },
   Route: { label: "Trajet", icon: "navigate", iconActive: "navigate", primary: true },
+  Leaderboard: { label: "Classement", icon: "trophy-outline", iconActive: "trophy" },
   Rewards: { label: "Récompenses", icon: "gift-outline", iconActive: "gift" },
-  Profile: { label: "Profil", icon: "person-outline", iconActive: "person" },
 };
 
 /** Custom bottom bar: pill highlight + a raised central "Trajet" button. */

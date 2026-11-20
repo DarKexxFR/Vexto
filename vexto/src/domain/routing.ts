@@ -115,6 +115,11 @@ export interface PlanContext {
   weather?: { badForSoftModes: boolean; reason: string | null } | null;
   /** Personal equipment (undefined = unknown, treated as owned). */
   owned?: Partial<Record<"bike" | "eScooter", boolean>>;
+  /**
+   * Real public transport itinerary (IDFM PRIM): door-to-door minutes from
+   * now (waiting included), distance and a short summary ("RER A à 08:42").
+   */
+  transit?: { durationMin: number; distanceKm: number; summary: string; path: RoutedPath | null } | null;
 }
 
 export function feasibilityFor(mode: TripMode, km: number): Feasibility {
@@ -165,7 +170,9 @@ export function buildModeOptions(
     drive
       ? make("carThermal", drive, drive.distanceKm, drive.durationMin, false)
       : make("carThermal", null, baseKm, fallback("carThermal", baseKm), true),
-    make("publicTransit", drive ?? null, baseKm, transitDurationMin(baseKm), true),
+    ctx.transit
+      ? make("publicTransit", ctx.transit.path ?? drive ?? null, ctx.transit.distanceKm, ctx.transit.durationMin, false)
+      : make("publicTransit", drive ?? null, baseKm, transitDurationMin(baseKm), true),
     cycle
       ? make("bike", cycle, cycle.distanceKm, cycle.durationMin, false)
       : make("bike", null, baseKm, fallback("bike", baseKm), true),
@@ -184,7 +191,8 @@ export function buildModeOptions(
     const notes: string[] = [];
     if (o.mode === "carThermal") notes.push("Référence : 0 point");
     if (o.mode === "publicTransit") {
-      notes.push(o.distanceKm < 1 ? "Trajet court : la marche est souvent aussi rapide" : "Durée estimée, attente comprise");
+      if (ctx.transit) notes.push(ctx.transit.summary);
+      else notes.push(o.distanceKm < 1 ? "Trajet court : la marche est souvent aussi rapide" : "Durée estimée, attente comprise");
     }
     if (o.feasibility === "unrealistic") {
       notes.push(o.mode === "walk" ? "Trop long à pied" : "Distance trop longue pour ce mode");

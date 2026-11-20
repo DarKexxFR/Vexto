@@ -92,6 +92,18 @@ describe("buildModeOptions", () => {
     expect(buildModeOptions({})).toHaveLength(0);
   });
 
+  it("uses real transit timetables when available", () => {
+    const options = buildModeOptions(CITY_TRIP, {
+      transit: { durationMin: 14, distanceKm: 5.9, summary: "RER A à 08:42 · 1 corresp.", path: null },
+    });
+    const transit = options.find((o) => o.mode === "publicTransit");
+    expect(transit?.durationMin).toBe(14);
+    expect(transit?.durationEstimated).toBe(false);
+    expect(transit?.distanceKm).toBe(5.9);
+    expect(transit?.note).toContain("RER A à 08:42");
+    expect(recommendedOption(options)?.mode).toBe("publicTransit");
+  });
+
   it("estimates transit time monotonically", () => {
     let prev = 0;
     for (let km = 0; km <= 80; km += 0.5) {

@@ -4,6 +4,7 @@ import { ActivityIndicator, Pressable, Text, TextInput, View } from "react-nativ
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { Icon } from "@/components/Icon";
+import { HeaderAvatar } from "@/components/HeaderAvatar";
 import { ScreenContainer } from "@/components/ScreenContainer";
 import { Avatar, Banner, Chip, EmptyState, ScreenHeader, SectionHeader, Segmented } from "@/components/ui";
 import { formatCo2, formatInt, pluralize } from "@/domain/format";
@@ -246,7 +247,7 @@ export function LeaderboardScreen() {
 
   return (
     <ScreenContainer onRefresh={() => void onRefresh()} refreshing={refreshing}>
-      <ScreenHeader title="Classement" subtitle="Qui évite le plus de CO₂ ?" />
+      <ScreenHeader title="Classement" subtitle="Qui évite le plus de CO₂ ?" right={<HeaderAvatar />} />
 
       <Segmented<Scope>
         value={scope}

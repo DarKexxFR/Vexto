@@ -7,9 +7,12 @@ import type { RootStackParamList, TabParamList } from "@/navigation/types";
 import { ForestScreen } from "@/screens/ForestScreen";
 import { HomeScreen } from "@/screens/HomeScreen";
 import { LeaderboardScreen } from "@/screens/LeaderboardScreen";
+import { LineScreen } from "@/screens/LineScreen";
 import { ProfileScreen } from "@/screens/ProfileScreen";
 import { RewardsScreen } from "@/screens/RewardsScreen";
 import { RouteScreen } from "@/screens/RouteScreen";
+import { StopScreen } from "@/screens/StopScreen";
+import { TransitScreen } from "@/screens/TransitScreen";
 import { TripHistoryScreen } from "@/screens/TripHistoryScreen";
 import { colors } from "@/theme/colors";
 
@@ -37,10 +40,10 @@ function Tabs() {
       screenOptions={{ headerShown: false }}
     >
       <Tab.Screen name="Home" component={HomeScreen} options={{ title: "Accueil" }} />
-      <Tab.Screen name="Leaderboard" component={LeaderboardScreen} options={{ title: "Classement" }} />
+      <Tab.Screen name="Transit" component={TransitScreen} options={{ title: "Horaires" }} />
       <Tab.Screen name="Route" component={RouteScreen} options={{ title: "Trajet" }} />
+      <Tab.Screen name="Leaderboard" component={LeaderboardScreen} options={{ title: "Classement" }} />
       <Tab.Screen name="Rewards" component={RewardsScreen} options={{ title: "Récompenses" }} />
-      <Tab.Screen name="Profile" component={ProfileScreen} options={{ title: "Profil" }} />
     </Tab.Navigator>
   );
 }
@@ -52,6 +55,9 @@ export function RootNavigator() {
         <Stack.Screen name="Tabs" component={Tabs} />
         <Stack.Screen name="Forest" component={ForestScreen} options={{ animation: "slide_from_bottom" }} />
         <Stack.Screen name="History" component={TripHistoryScreen} />
+        <Stack.Screen name="Profile" component={ProfileScreen} />
+        <Stack.Screen name="Stop" component={StopScreen} />
+        <Stack.Screen name="Line" component={LineScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

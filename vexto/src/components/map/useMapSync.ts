@@ -3,6 +3,18 @@ import { useEffect } from "react";
 import type { MapCommand } from "@/components/map/mapHtml";
 import type { GeoLineString } from "@/types/database";
 
+export interface MapSegment {
+  coordinates: Array<[number, number]>;
+  color: string;
+  /** Dotted line (walking legs). */
+  dashed?: boolean;
+}
+
+export interface MapPoint {
+  coordinates: [number, number];
+  color: string;
+}
+
 export interface MapViewProps {
   token: string;
   start: [number, number] | null;
@@ -12,6 +24,10 @@ export interface MapViewProps {
   routeColor?: string;
   /** Dashed route (used for estimated transit paths). */
   routeDashed?: boolean;
+  /** Multi-colour itinerary (transit legs); takes precedence over routeGeometry. */
+  segments?: MapSegment[] | null;
+  /** Small circles (e.g. transit stops). */
+  points?: MapPoint[] | null;
   /** Already travelled breadcrumb, drawn in grey. */
   traveled?: Array<[number, number]> | null;
   /** Live user position [lon, lat] (e.g. during navigation). */
@@ -51,6 +67,8 @@ export function useMapSync(
     routeGeometry,
     routeColor,
     routeDashed = false,
+    segments,
+    points,
     traveled,
     user,
     heading,
@@ -66,10 +84,12 @@ export function useMapSync(
       line: routeGeometry,
       color: routeColor,
       dashed: routeDashed,
+      segments: segments ?? null,
+      points: points ?? null,
       // While following the user (navigation) the camera stays on them.
       fit: !followUser,
     });
-  }, [send, ready, start, end, routeGeometry, routeColor, routeDashed, followUser]);
+  }, [send, ready, start, end, routeGeometry, routeColor, routeDashed, segments, points, followUser]);
 
   useEffect(() => {
     if (!ready) return;

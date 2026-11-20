@@ -4,6 +4,7 @@ import { LinearGradient } from "expo-linear-gradient";
 
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
+import { HeaderAvatar } from "@/components/HeaderAvatar";
 import { ScreenContainer } from "@/components/ScreenContainer";
 import { Banner, Chip, ProgressBar, ScreenHeader, SectionHeader } from "@/components/ui";
 import { DEMO_REWARDS } from "@/constants/sampleData";
@@ -119,7 +120,7 @@ export function RewardsScreen() {
 
   return (
     <ScreenContainer onRefresh={() => void onRefresh()} refreshing={refreshing}>
-      <ScreenHeader title="Récompenses" subtitle="Vos trajets verts valent de vrais avantages." />
+      <ScreenHeader title="Récompenses" subtitle="Vos trajets verts valent de vrais avantages." right={<HeaderAvatar />} />
 
       <LinearGradient
         colors={[colors.forest, colors.forestSoft]}

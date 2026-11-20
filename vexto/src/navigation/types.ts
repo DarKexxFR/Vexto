@@ -8,16 +8,19 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 export type TabParamList = {
   Home: undefined;
-  Leaderboard: undefined;
+  Transit: undefined;
   Route: undefined;
+  Leaderboard: undefined;
   Rewards: undefined;
-  Profile: undefined;
 };
 
 export type RootStackParamList = {
   Tabs: NavigatorScreenParams<TabParamList> | undefined;
   Forest: undefined;
   History: undefined;
+  Profile: undefined;
+  Stop: { id: string; name: string; coords?: [number, number] | null; lineId?: string | null };
+  Line: { id: string; name?: string };
 };
 
 export type AppNavigation = CompositeNavigationProp<

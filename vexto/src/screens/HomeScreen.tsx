@@ -1,22 +1,26 @@
 import { useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
+import { useIsFocused } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 
 import { Card } from "@/components/Card";
 import { ForestScene } from "@/components/forest/ForestScene";
-import { Icon } from "@/components/Icon";
+import { Icon, McIcon } from "@/components/Icon";
 import { ScoreRing } from "@/components/ScoreRing";
 import { ScreenContainer } from "@/components/ScreenContainer";
+import { StopBoardCard } from "@/components/transit/StopBoardCard";
 import { TripRow } from "@/components/TripRow";
 import { Avatar, Chip, EmptyState, ProgressBar, SectionHeader, StatTile } from "@/components/ui";
 import { WeatherCoachCard } from "@/components/WeatherCoachCard";
 import { WeeklyChart } from "@/components/WeeklyChart";
 import { shortPlaceLabel, type Place } from "@/domain/places";
 import { firstName, formatChange, formatCo2, formatInt, greeting, pluralize } from "@/domain/format";
+import type { DepartureGroup } from "@/domain/transit";
 import { useUserStats } from "@/hooks/useUserStats";
 import { confirmAsync } from "@/lib/dialogs";
 import { getRank } from "@/lib/profile";
 import { refreshAll } from "@/lib/sync";
+import { fetchDepartures } from "@/lib/transit";
 import { useAppNavigation } from "@/navigation/types";
 import { useAppStore } from "@/store/useAppStore";
 import { usePrefsStore, type FavoriteKind } from "@/store/usePrefsStore";
@@ -34,6 +38,12 @@ export function HomeScreen() {
   const home = usePrefsStore((s) => s.home);
   const work = usePrefsStore((s) => s.work);
   const forestVisited = usePrefsStore((s) => s.forestVisited);
+  const favoriteStops = usePrefsStore((s) => s.favoriteStops);
+  const toggleFavoriteStop = usePrefsStore((s) => s.toggleFavoriteStop);
+  const focused = useIsFocused();
+  const firstStop = favoriteStops[0] ?? null;
+  const [stopBoard, setStopBoard] = useState<DepartureGroup[] | "error" | undefined>(undefined);
+  const [boardTime, setBoardTime] = useState(() => new Date());
   const stats = useUserStats();
   const [rank, setRank] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -50,6 +60,23 @@ export function HomeScreen() {
       alive = false;
     };
   }, [points]);
+
+  // Next departures at the favourite stop, refreshed when Home is shown.
+  const firstStopId = firstStop?.id;
+  useEffect(() => {
+    if (!firstStopId || !focused) return;
+    let alive = true;
+    fetchDepartures(firstStopId)
+      .then((g) => {
+        if (!alive) return;
+        setStopBoard(g);
+        setBoardTime(new Date());
+      })
+      .catch(() => alive && setStopBoard("error"));
+    return () => {
+      alive = false;
+    };
+  }, [firstStopId, focused]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -178,6 +205,37 @@ export function HomeScreen() {
       </View>
 
       <WeatherCoachCard onPlan={planWithMode} />
+
+      {/* Real-time departures (IDFM) */}
+      {firstStop ? (
+        <>
+          <SectionHeader title="Mon arrêt" actionLabel="Horaires" onAction={() => navigation.navigate("Transit")} />
+          <StopBoardCard
+            name={firstStop.name}
+            groups={stopBoard}
+            now={boardTime}
+            favorite
+            maxRows={3}
+            onToggleFavorite={() => toggleFavoriteStop(firstStop)}
+            onOpen={() => navigation.navigate("Stop", { id: firstStop.id, name: firstStop.name, coords: firstStop.coords })}
+          />
+        </>
+      ) : (
+        <Card className="mb-4" onPress={() => navigation.navigate("Transit")} accessibilityLabel="Horaires en temps réel">
+          <View className="flex-row items-center gap-3">
+            <View className="h-11 w-11 items-center justify-center rounded-2xl bg-sky-soft">
+              <McIcon name="subway-variant" size={22} color={colors.sky} />
+            </View>
+            <View className="flex-1">
+              <Text className="text-sm font-bold text-forest">Horaires en temps réel</Text>
+              <Text className="text-xs text-muted">
+                Bus, métro, RER, tram : sachez quand partir. Ajoutez votre arrêt en favori ⭐
+              </Text>
+            </View>
+            <Icon name="chevron-forward" size={18} color={colors.muted} />
+          </View>
+        </Card>
+      )}
 
       {/* Shortcuts */}
       <SectionHeader title="Raccourcis" />
