@@ -271,7 +271,7 @@ export function JourneySteps({ journey }: JourneyStepsProps) {
                   {leg.stops} arrêt{leg.stops > 1 ? "s" : ""} · {formatDuration(leg.durationMin)}
                   {leg.arrival ? ` · arrivée ${formatTime(leg.arrival)}` : ""}
                 </Text>
-                <StopList names={leg.stopNames} color={leg.line.color} />
+                <StopList names={leg.stopList.map((st) => st.name)} color={leg.line.color} />
               </View>
             </View>
           );

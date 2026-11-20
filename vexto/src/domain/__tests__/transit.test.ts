@@ -66,7 +66,7 @@ const JOURNEYS: NvJourneysResponse = {
             links: [{ type: "line", id: "line:IDFM:C01742" }],
           },
           stop_date_times: [
-            { stop_point: { name: "Châtelet les Halles (Paris)" } },
+            { stop_point: { name: "Châtelet les Halles (Paris)", coord: { lon: "2.3470", lat: "48.8619" } } },
             { stop_point: { name: "Gare de Lyon (Paris)" } },
           ],
           geojson: { type: "LineString", coordinates: [[2.3470, 48.8619], [2.3735, 48.8448]] },
@@ -159,7 +159,10 @@ describe("parseJourneys", () => {
     expect(rer.line?.id).toBe("line:IDFM:C01742");
     expect(rer.direction).toBe("Boissy-Saint-Léger");
     expect(rer.from).toBe("Châtelet les Halles");
-    expect(rer.stopNames).toEqual(["Châtelet les Halles", "Gare de Lyon"]);
+    expect(rer.stopList).toEqual([
+      { name: "Châtelet les Halles", coords: [2.347, 48.8619] },
+      { name: "Gare de Lyon", coords: null },
+    ]);
     expect(rer.realtime).toBe(true);
     expect(rer.delayMin).toBe(2);
     expect(j.distanceKm).toBeGreaterThan(2.5);

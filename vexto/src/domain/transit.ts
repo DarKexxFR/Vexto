@@ -151,6 +151,11 @@ export interface LineBadge {
 
 export type LegType = "walk" | "transit" | "transfer" | "wait";
 
+export interface TransitStop {
+  name: string;
+  coords: LngLat | null;
+}
+
 export interface TransitLeg {
   type: LegType;
   from: string;
@@ -165,7 +170,7 @@ export interface TransitLeg {
   /** Number of stops ridden (transit legs). */
   stops: number;
   /** Every station / stop served, boarding and exit included (transit legs). */
-  stopNames: string[];
+  stopList: TransitStop[];
   geometry: LngLat[];
   realtime: boolean;
   /** Positive = late, in minutes (realtime only). */
@@ -366,7 +371,7 @@ export function parseJourneys(json: NvJourneysResponse): TransitJourney[] {
         line: null,
         direction: null,
         stops: 0,
-        stopNames: [] as string[],
+        stopList: [] as TransitStop[],
         geometry,
         realtime: false,
         delayMin: 0,
@@ -380,9 +385,12 @@ export function parseJourneys(json: NvJourneysResponse): TransitJourney[] {
           line: badgeFromDisplay(s.display_informations),
           direction: s.display_informations?.direction ? cleanName(s.display_informations.direction) : null,
           stops: Math.max(1, (s.stop_date_times?.length ?? 2) - 1),
-          stopNames: (s.stop_date_times ?? [])
-            .map((sdt) => cleanName(sdt?.stop_point?.name ?? ""))
-            .filter((n) => n.length > 0),
+          stopList: (s.stop_date_times ?? [])
+            .map((sdt) => ({
+              name: cleanName(sdt?.stop_point?.name ?? ""),
+              coords: coordOf(sdt?.stop_point?.coord),
+            }))
+            .filter((st) => st.name.length > 0),
           realtime,
           delayMin: realtime && baseDep && dep ? Math.round((dep.getTime() - baseDep.getTime()) / 60_000) : 0,
         });
