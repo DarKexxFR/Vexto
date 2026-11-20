@@ -1,5 +1,10 @@
 import { useState } from "react";
+import { Platform } from "react-native";
 import * as Location from "expo-location";
+
+import { webCurrentPosition, webPermissionState } from "@/lib/webGeolocation";
+
+const isWeb = Platform.OS === "web";
 
 interface UseCurrentLocation {
   loading: boolean;
@@ -17,6 +22,7 @@ export function useCurrentLocation(): UseCurrentLocation {
     setLoading(true);
     setError(null);
     try {
+      if (isWeb) return await webCurrentPosition();
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
         setError("Autorisation de localisation refusée. Activez-la dans les réglages.");
@@ -43,6 +49,7 @@ export function useCurrentLocation(): UseCurrentLocation {
  */
 export async function getKnownPosition(): Promise<[number, number] | null> {
   try {
+    if (isWeb) return (await webPermissionState()) === "granted" ? await webCurrentPosition() : null;
     const perm = await Location.getForegroundPermissionsAsync();
     if (perm.status !== "granted") return null;
     const last = await Location.getLastKnownPositionAsync({ maxAge: 15 * 60_000 }).catch(() => null);
@@ -57,6 +64,7 @@ export async function getKnownPosition(): Promise<[number, number] | null> {
 /** Prompt for permission, then resolve the position (null if refused). */
 export async function requestPosition(): Promise<[number, number] | null> {
   try {
+    if (isWeb) return await webCurrentPosition();
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== "granted") return null;
     const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
