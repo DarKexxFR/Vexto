@@ -15,6 +15,10 @@ amis, échanger ses crédits contre des récompenses… et faire pousser sa for�
 | 🏆 **Gamification** | Points calculés et vérifiés côté serveur (anti-triche), niveaux, série de jours 🔥, 16 succès, classement général / amis / semaine, code ami, récompenses avec bons de réduction. |
 | 🎁 **Surprise du chef : Ma Forêt Vexto** | Une forêt vivante qui pousse avec le CO₂ évité (1 arbre = 25 kg, 5 stades de croissance), saisons et ciel selon l'heure, faune qui revient, équivalences concrètes (km en voiture, repas, jeans…), partage. Plus un **coach météo** qui conseille le meilleur mode du moment. |
 | 🚲 **Vélib' en temps réel** | Stations proches dans Horaires ; en mode vélo, où prendre un vélo au départ (mécaniques / électriques) et où le reposer à l'arrivée (places libres), aussi sur la carte. Données ouvertes Paris / Vélib' Métropole, sans clé. |
+| ⚠️ **Info trafic** | Perturbations en direct (trafic interrompu, ralenti, travaux) sur la fiche d'un arrêt, sur les lignes concernées et dans les itinéraires — tirées des données temps réel PRIM, sans abonnement supplémentaire. |
+| 🏠 **Mon trajet quotidien** | Sur l'accueil, Maison → Travail (ou l'inverse selon l'heure) : « Partez dans 6 min », lignes, arrivée et alertes, en temps réel. |
+| 🎯 **Défis de la semaine** | Trois objectifs qui changent chaque lundi (3 trajets à vélo, 20 km sans voiture, actif 4 jours…) avec leur progression. |
+| 🗓️ **Mon bilan du mois** | CO₂ évité, comparaison au mois précédent, modes, meilleure journée, équivalences, à partager. |
 | 🌐 **Site web / PWA** | La même app dans le navigateur, installable sur l'écran d'accueil, déployée automatiquement sur GitHub Pages. |
 
 ## Stack

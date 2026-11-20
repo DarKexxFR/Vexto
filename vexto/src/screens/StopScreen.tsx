@@ -7,10 +7,11 @@ import { Card } from "@/components/Card";
 import { Icon } from "@/components/Icon";
 import { MapView } from "@/components/map/MapView";
 import { ScreenContainer } from "@/components/ScreenContainer";
-import { DepartureRow } from "@/components/transit/TransitViews";
+import { DepartureRow, TrafficAlertView } from "@/components/transit/TransitViews";
 import { Banner, Chip, EmptyState, ScreenHeader } from "@/components/ui";
 import { formatTime } from "@/domain/format";
-import type { DepartureGroup, TransitModeKind } from "@/domain/transit";
+import type { DepartureGroup, LineBadge, TransitModeKind } from "@/domain/transit";
+import type { TrafficAlert } from "@/domain/traffic";
 import { config, isMapboxConfigured } from "@/lib/config";
 import { haptic } from "@/lib/haptics";
 import { fetchDepartures, transitErrorMessage } from "@/lib/transit";
@@ -78,6 +79,14 @@ export function StopScreen({ route, navigation }: Props) {
     return [...list.filter((g) => g.line.id === lineId), ...list.filter((g) => g.line.id !== lineId)];
   }, [groups, filter, lineId]);
 
+  // Each alert once, shown with the first line it concerns at this stop.
+  const stopAlerts = useMemo(() => {
+    const seen = new Map<string, { alert: TrafficAlert; line: LineBadge }>();
+    for (const g of groups ?? []) for (const a of g.alerts) if (!seen.has(a.id)) seen.set(a.id, { alert: a, line: g.line });
+    const rank = { blocking: 0, delays: 1, info: 2 } as const;
+    return [...seen.values()].sort((x, y) => rank[x.alert.level] - rank[y.alert.level]);
+  }, [groups]);
+
   const onRefresh = async () => {
     setRefreshing(true);
     await load();
@@ -112,6 +121,14 @@ export function StopScreen({ route, navigation }: Props) {
       ) : null}
 
       {error ? <Banner tone="warning" message={error} actionLabel="Réessayer" onAction={() => void onRefresh()} /> : null}
+
+      {stopAlerts.length > 0 ? (
+        <View className="mb-4 gap-2">
+          {stopAlerts.map(({ alert, line }) => (
+            <TrafficAlertView key={alert.id} alert={alert} line={line} />
+          ))}
+        </View>
+      ) : null}
 
       {kinds.length > 1 ? (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-3" contentContainerClassName="gap-2">
