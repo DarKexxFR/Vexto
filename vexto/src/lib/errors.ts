@@ -1,3 +1,4 @@
+import { isDeviceOffline } from "@/lib/online";
 /**
  * Error helpers: detect backend features that are not deployed yet (migration
  * 0006 not applied) and translate server error codes into friendly French.
@@ -51,7 +52,9 @@ export function friendlyError(e: unknown, fallback = "Une erreur est survenue.")
   const known = KNOWN_MESSAGES[message.trim()];
   if (known) return known;
   if (/network request failed|failed to fetch|networkerror|load failed/i.test(message)) {
-    return "Pas de connexion internet. Réessayez dans un instant.";
+    return isDeviceOffline()
+      ? "Pas de connexion internet. Réessayez dans un instant."
+      : "Le serveur Vexto ne répond pas. Réessayez dans un instant.";
   }
   if (/jwt|refresh token|not authorized/i.test(message)) {
     return "Session expirée, reconnectez-vous.";
