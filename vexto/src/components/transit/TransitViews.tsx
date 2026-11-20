@@ -194,3 +194,77 @@ export function JourneyCard({ journey, now, selected, onPress }: JourneyCardProp
     </Pressable>
   );
 }
+
+interface JourneyStepsProps {
+  journey: TransitJourney;
+}
+
+/**
+ * Step-by-step plan of the selected itinerary, so you know exactly which line
+ * to take: "Prenez le RER B direction Aéroport CDG à Châtelet (08:42) →
+ * descendez à Gare du Nord (2 arrêts)".
+ */
+export function JourneySteps({ journey }: JourneyStepsProps) {
+  const steps = journey.legs.filter((l) => l.type !== "wait" && !(l.type === "walk" && l.durationMin <= 0));
+  return (
+    <View className="rounded-2xl border border-line bg-card p-3.5">
+      <Text className="mb-2 text-xs font-bold uppercase tracking-wide text-muted">Votre itinéraire étape par étape</Text>
+      {steps.map((leg, i) => {
+        const last = i === steps.length - 1;
+        if (leg.type === "transit" && leg.line) {
+          const what = leg.line.kind === "bus" ? `le bus ${leg.line.code}` : `le ${leg.line.modeLabel} ${leg.line.code}`;
+          return (
+            <View key={i} className="flex-row gap-3">
+              <View className="items-center">
+                <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: leg.line.color, marginTop: 6 }} />
+                {!last ? <View style={{ width: 4, flex: 1, backgroundColor: leg.line.color, opacity: 0.6 }} /> : null}
+              </View>
+              <View className="flex-1 pb-3">
+                <View className="flex-row flex-wrap items-center gap-2">
+                  <LineBadgeView line={leg.line} size="md" />
+                  {leg.departure ? <Text className="text-sm font-extrabold text-forest">{formatTime(leg.departure)}</Text> : null}
+                  {leg.realtime && leg.delayMin >= 2 ? (
+                    <Text className="text-xs font-bold text-danger">retard {leg.delayMin} min</Text>
+                  ) : null}
+                </View>
+                <Text className="mt-1 text-sm text-forest">
+                  Prenez <Text className="font-bold">{what}</Text>
+                  {leg.direction ? (
+                    <>
+                      {" "}direction <Text className="font-bold">{leg.direction}</Text>
+                    </>
+                  ) : null}
+                </Text>
+                <Text className="text-xs text-muted">Montez à {leg.from}</Text>
+                <Text className="mt-1 text-sm text-forest">
+                  Descendez à <Text className="font-bold">{leg.to}</Text>
+                </Text>
+                <Text className="text-xs text-muted">
+                  {leg.stops} arrêt{leg.stops > 1 ? "s" : ""} · {formatDuration(leg.durationMin)}
+                  {leg.arrival ? ` · arrivée ${formatTime(leg.arrival)}` : ""}
+                </Text>
+              </View>
+            </View>
+          );
+        }
+        const label =
+          leg.type === "transfer"
+            ? `Correspondance à pied à ${leg.from}${leg.to && leg.to !== leg.from ? ` vers ${leg.to}` : ""}`
+            : `Marchez jusqu'à ${last ? "votre destination" : leg.to || "l'arrêt"}`;
+        return (
+          <View key={i} className="flex-row gap-3">
+            <View className="items-center" style={{ width: 12 }}>
+              <McIcon name="walk" size={14} color={colors.muted} />
+              {!last ? <View style={{ width: 2, flex: 1, borderLeftWidth: 2, borderStyle: "dotted", borderColor: colors.faint }} /> : null}
+            </View>
+            <View className="flex-1 pb-3">
+              <Text className="text-sm text-forest">{label}</Text>
+              <Text className="text-xs text-muted">{formatDuration(Math.max(1, leg.durationMin))} à pied</Text>
+            </View>
+          </View>
+        );
+      })}
+      <Text className="text-xs font-semibold text-forest">Arrivée prévue à {formatTime(journey.arrival)}</Text>
+    </View>
+  );
+}

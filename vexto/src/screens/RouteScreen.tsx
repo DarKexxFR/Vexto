@@ -12,7 +12,7 @@ import { NavigationOverlay, type NavResult } from "@/components/NavigationOverla
 import { HeaderAvatar } from "@/components/HeaderAvatar";
 import { ScreenContainer } from "@/components/ScreenContainer";
 import { journeyPoints, journeySegments } from "@/components/transit/journeyMap";
-import { JourneyCard } from "@/components/transit/TransitViews";
+import { JourneyCard, JourneySteps } from "@/components/transit/TransitViews";
 import { TripCelebration, type CelebrationData } from "@/components/TripCelebration";
 import { Banner, Chip, ScreenHeader, SectionHeader } from "@/components/ui";
 import { MODES } from "@/constants/modes";
@@ -91,7 +91,7 @@ export function RouteScreen() {
   const [journeys, setJourneys] = useState<TransitJourney[] | null>(null);
   const [journeysLoading, setJourneysLoading] = useState(false);
   const [journeyIdx, setJourneyIdx] = useState(0);
-  const [transitNotice, setTransitNotice] = useState<string | null>(null);
+  const [transitNotice, setTransitNotice] = useState<{ setup: boolean; message: string } | null>(null);
   /** Trip awaiting upload; keeps the created id so a retry never duplicates it. */
   const pendingTrip = useRef<{ result: NavResult; tripId: string | null } | null>(null);
 
@@ -177,7 +177,7 @@ export function RouteScreen() {
       .catch((e: unknown) => {
         if (!alive) return;
         setJourneys(null);
-        setTransitNotice(isTransitSetupError(e) ? transitErrorMessage(e) : null);
+        setTransitNotice({ setup: isTransitSetupError(e), message: transitErrorMessage(e) });
       })
       .finally(() => alive && setJourneysLoading(false));
     return () => {
@@ -541,6 +541,11 @@ export function RouteScreen() {
                     />
                   ))}
                 </View>
+                {selectedJourney ? (
+                  <View className="mb-4">
+                    <JourneySteps journey={selectedJourney} />
+                  </View>
+                ) : null}
               </>
             ) : journeysLoading ? (
               <Card className="mb-4 flex-row items-center gap-3">
@@ -548,7 +553,13 @@ export function RouteScreen() {
                 <Text className="text-sm text-muted">Recherche des prochains bus, métros et RER…</Text>
               </Card>
             ) : transitNotice ? (
-              <Banner tone="info" title="Horaires réels non configurés" message={`${transitNotice} En attendant, la durée est estimée.`} />
+              <Banner
+                tone="info"
+                title={transitNotice.setup ? "Horaires réels non configurés" : "Lignes indisponibles pour le moment"}
+                message={`${transitNotice.message} Sans ce service, l'app ne peut pas vous dire quel bus, métro ou RER prendre : la durée affichée est seulement estimée.`}
+                actionLabel={transitNotice.setup ? undefined : "Réessayer"}
+                onAction={transitNotice.setup ? undefined : () => setReloadKey((k) => k + 1)}
+              />
             ) : journeys && journeys.length === 0 ? (
               <Banner tone="info" message="Aucun transport en commun trouvé pour ce trajet à cette heure-ci." />
             ) : null
