@@ -1,3 +1,4 @@
+import { Platform } from "react-native";
 import type { Provider, Session } from "@supabase/supabase-js";
 import { makeRedirectUri } from "expo-auth-session";
 import * as QueryParams from "expo-auth-session/build/QueryParams";
@@ -8,8 +9,17 @@ import { supabase } from "@/lib/supabase";
 // Dismiss the in-app browser automatically once auth completes.
 WebBrowser.maybeCompleteAuthSession();
 
-/** Where the OAuth provider sends the user back to (deep link into the app). */
-const redirectTo = makeRedirectUri();
+/**
+ * Where the OAuth provider sends the user back to. Native: deep link into the
+ * app. Web: the exact page the app is served from (e.g.
+ * https://darkexxfr.github.io/Vexto/), including the GitHub Pages sub-path
+ * that makeRedirectUri() would drop.
+ */
+function webRedirect(): string {
+  const { origin, pathname } = window.location;
+  return `${origin}${pathname.endsWith("/") ? pathname : pathname.replace(/[^/]*$/, "")}`;
+}
+const redirectTo = Platform.OS === "web" ? webRedirect() : makeRedirectUri();
 
 export interface SignUpResult {
   session: Session | null;
@@ -78,6 +88,13 @@ async function createSessionFromUrl(url: string): Promise<void> {
  * is picked up by the `onAuthStateChange` listener.
  */
 export async function signInWithProvider(provider: Provider): Promise<void> {
+  if (Platform.OS === "web") {
+    // Full-page redirect: popups get blocked and lose the PKCE verifier.
+    // On return, supabase-js exchanges ?code= automatically (detectSessionInUrl).
+    const { error } = await supabase.auth.signInWithOAuth({ provider, options: { redirectTo } });
+    if (error) throw error;
+    return;
+  }
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider,
     options: { redirectTo, skipBrowserRedirect: true },
