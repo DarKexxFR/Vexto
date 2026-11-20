@@ -28,7 +28,6 @@ import { colors } from "@/theme/colors";
 
 const QUICK_SEARCHES: Record<TransitRegion, string[]> = {
   idfm: ["RER A", "RER B", "RER C", "RER D", "Métro 1", "Métro 4", "Métro 14", "T3a", "Bus 38"],
-  dijon: ["Tram T1", "Tram T2", "Lianes 3", "Lianes 5", "Corol", "Dijon Ville"],
   sncf: ["TER", "TGV", "Intercités", "Gare"],
 };
 
@@ -70,7 +69,7 @@ export function TransitScreen() {
     setNow(new Date());
   }, []);
 
-  // Last known position: picks the local network (Paris, Dijon…) for search.
+  // Last known position: Île-de-France network or SNCF for search.
   const lastPos = useRef<[number, number] | null>(null);
   const [region, setRegion] = useState<TransitRegion>("idfm");
 

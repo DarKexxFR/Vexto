@@ -47,19 +47,18 @@ Appliquez les migrations `supabase/migrations/0001` → `0007` (éditeur SQL de
 Supabase, ou `npx supabase db push`). La **0006** corrige des failles importantes
 (voir *Sécurité*) ; la **0007** prépare les tracés officiels IDFM.
 
-### 2. Horaires temps réel (Île-de-France, Dijon, SNCF)
+### 2. Horaires temps réel (Île-de-France et SNCF)
 
 La fonction `supabase/functions/transit` choisit la source selon le lieu :
 
 | Zone | Source | Secret Supabase | Clé gratuite |
 | --- | --- | --- | --- |
 | Île-de-France (RATP, RER, Transilien, bus…) | IDFM PRIM | `PRIM_API_KEY` | [prim.iledefrance-mobilites.fr](https://prim.iledefrance-mobilites.fr) › s'abonner à « Calculateur IDFM – Accès générique (v2) » › Mes clés d'API |
-| Dijon Métropole (Divia bus & tram) — **optionnel** | navitia.io, couverture `fr-ne-dijon` | `NAVITIA_API_KEY` | **payant** ([navitia.io](https://navitia.io), plus d'offre gratuite) ; sans clé, Dijon passe par l'API SNCF (trains uniquement) |
 | Reste de la France, trajets entre villes (TER, TGV, Intercités…) | API SNCF | `SNCF_API_KEY` | [numerique.sncf.com › API](https://numerique.sncf.com/startup/api/) |
 
-Un trajet dont le départ et l'arrivée sont dans la même zone locale utilise
-cette zone ; sinon il passe par l'API SNCF. Seules les zones dont la clé est
-renseignée sont actives.
+Un trajet dont le départ et l'arrivée sont en Île-de-France utilise PRIM ;
+sinon il passe par l'API SNCF. Seules les sources dont la clé est renseignée
+sont actives.
 
 1. Ajoutez les clés dans Supabase › **Edge Functions › Secrets** (elles ne
    quittent jamais le serveur).
@@ -69,7 +68,7 @@ renseignée sont actives.
 
 La fonction n'accepte que les utilisateurs connectés et met les réponses en
 cache pour ménager les quotas. Variables optionnelles : `PRIM_NAVITIA_BASE`,
-`DIJON_NAVITIA_BASE`, `SNCF_NAVITIA_BASE`.
+`SNCF_NAVITIA_BASE`.
 
 Tant que la fonction n'est pas déployée, l'app l'indique et estime la durée en
 transports.

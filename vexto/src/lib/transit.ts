@@ -1,6 +1,6 @@
 /**
  * Client for the "transit" Supabase Edge Function (Navitia proxy for IDFM
- * PRIM, Divia Dijon via navitia.io, and SNCF national rail).
+ * PRIM and SNCF national rail).
  * Returns parsed app shapes and typed errors so screens can explain what to
  * configure when real-time data is unavailable.
  */
@@ -41,7 +41,6 @@ export { regionAt, tagId, untagId, type TransitRegion };
 
 const REGION_INFO: Record<TransitRegion, { name: string; secret: string; site: string }> = {
   idfm: { name: "Île-de-France Mobilités (PRIM)", secret: "PRIM_API_KEY", site: "prim.iledefrance-mobilites.fr" },
-  dijon: { name: "Divia / navitia.io", secret: "NAVITIA_API_KEY", site: "navitia.io" },
   sncf: { name: "SNCF", secret: "SNCF_API_KEY", site: "numerique.sncf.com" },
 };
 

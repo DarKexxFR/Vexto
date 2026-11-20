@@ -2,16 +2,15 @@ import type { LngLat } from "@/domain/navigation";
 
 /**
  * Data source behind a transit result. Mirrors the "transit" Edge Function:
- * IDFM PRIM in Île-de-France, Divia (navitia.io) around Dijon, SNCF elsewhere.
+ * IDFM PRIM in Île-de-France, SNCF elsewhere.
  */
-export type TransitRegion = "idfm" | "dijon" | "sncf";
+export type TransitRegion = "idfm" | "sncf";
 
-export const isRegion = (r: unknown): r is TransitRegion => r === "idfm" || r === "dijon" || r === "sncf";
+export const isRegion = (r: unknown): r is TransitRegion => r === "idfm" || r === "sncf";
 
-/** Local network covering a point; national rail (SNCF) everywhere else. */
+/** Île-de-France network around a point; national rail (SNCF) everywhere else. */
 export function regionAt([lon, lat]: LngLat): TransitRegion {
   if (lon >= 1.4 && lon <= 3.6 && lat >= 48.1 && lat <= 49.25) return "idfm";
-  if (lon >= 4.85 && lon <= 5.25 && lat >= 47.2 && lat <= 47.45) return "dijon";
   return "sncf";
 }
 
