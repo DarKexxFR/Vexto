@@ -5,7 +5,8 @@
 //   idfm   Île-de-France (RATP, SNCF Transilien/RER, Optile…) — IDFM PRIM
 //          secret PRIM_API_KEY
 //   dijon  Dijon Métropole (Divia bus & tram) — navitia.io, coverage fr-ne-dijon
-//          secret NAVITIA_API_KEY
+//          secret NAVITIA_API_KEY — OPTIONAL, navitia.io has no free plan any
+//          more; without it Dijon is served by SNCF (trains only)
 //   sncf   Everywhere else in France: TER, Intercités, TGV… — api.sncf.com
 //          secret SNCF_API_KEY
 //
@@ -47,10 +48,14 @@ const PROVIDERS: Record<Region, Provider> = {
 const REGIONS: Region[] = ["idfm", "dijon", "sncf"];
 const isRegion = (r: unknown): r is Region => typeof r === "string" && (REGIONS as string[]).includes(r);
 
-/** Local network covering a point; "sncf" (national rail) elsewhere. */
+/**
+ * Local network covering a point; "sncf" (national rail) elsewhere. Dijon is
+ * optional (navitia.io is a paid plan): without NAVITIA_API_KEY, Dijon falls
+ * back to SNCF (TER / TGV from Dijon stations).
+ */
 function regionAt(lon: number, lat: number): Region {
   if (lon >= 1.4 && lon <= 3.6 && lat >= 48.1 && lat <= 49.25) return "idfm";
-  if (lon >= 4.85 && lon <= 5.25 && lat >= 47.2 && lat <= 47.45) return "dijon";
+  if (PROVIDERS.dijon.key && lon >= 4.85 && lon <= 5.25 && lat >= 47.2 && lat <= 47.45) return "dijon";
   return "sncf";
 }
 

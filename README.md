@@ -54,7 +54,7 @@ La fonction `supabase/functions/transit` choisit la source selon le lieu :
 | Zone | Source | Secret Supabase | Clé gratuite |
 | --- | --- | --- | --- |
 | Île-de-France (RATP, RER, Transilien, bus…) | IDFM PRIM | `PRIM_API_KEY` | [prim.iledefrance-mobilites.fr](https://prim.iledefrance-mobilites.fr) › s'abonner à « Calculateur IDFM – Accès générique (v2) » › Mes clés d'API |
-| Dijon Métropole (Divia bus & tram) | navitia.io, couverture `fr-ne-dijon` | `NAVITIA_API_KEY` | [navitia.io](https://navitia.io) (Divia ne fournit pas de clé elle-même) |
+| Dijon Métropole (Divia bus & tram) — **optionnel** | navitia.io, couverture `fr-ne-dijon` | `NAVITIA_API_KEY` | **payant** ([navitia.io](https://navitia.io), plus d'offre gratuite) ; sans clé, Dijon passe par l'API SNCF (trains uniquement) |
 | Reste de la France, trajets entre villes (TER, TGV, Intercités…) | API SNCF | `SNCF_API_KEY` | [numerique.sncf.com › API](https://numerique.sncf.com/startup/api/) |
 
 Un trajet dont le départ et l'arrivée sont dans la même zone locale utilise
