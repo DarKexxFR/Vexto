@@ -8,6 +8,9 @@
  *
  * PostGIS geometry columns are typed as GeoJSON-ish `string | null` because the
  * REST API returns them as WKB/EWKT strings unless explicitly transformed.
+ *
+ * Columns added by migration 0006 are optional (`?`) so the app keeps working
+ * against a database where that migration has not been applied yet.
  */
 
 export type Json =
@@ -27,6 +30,13 @@ export type TripMode =
 
 export type TripStatus = "pending" | "verified" | "rejected";
 export type FriendshipStatus = "pending" | "accepted" | "blocked";
+
+/** Server-side reasons a trip can be rejected (migration 0006). */
+export type TripRejectionReason =
+  | "no_track"
+  | "invalid_duration"
+  | "too_fast"
+  | "off_transit_network";
 
 /**
  * NOTE: Row/Insert/Update shapes use `type` aliases (not `interface`) on
@@ -55,6 +65,8 @@ export type ProfileRow = {
   avatar_url: string | null;
   cumulative_points: number;
   current_co2_saved: number;
+  /** Points already exchanged for rewards (0006). */
+  spent_points?: number;
   created_at: string;
   updated_at: string;
 };
@@ -82,6 +94,9 @@ export type TripRow = {
   transit_operator_id: string | null;
   status: TripStatus;
   created_at: string;
+  started_at?: string | null;
+  ended_at?: string | null;
+  rejection_reason?: TripRejectionReason | null;
 };
 
 export type TripInsert = {
@@ -92,6 +107,8 @@ export type TripInsert = {
   gps_track?: string | null;
   distance_km: number;
   transit_operator_id?: string | null;
+  started_at?: string | null;
+  ended_at?: string | null;
 };
 
 export type FriendshipRow = {
@@ -120,6 +137,17 @@ export type RedemptionRow = {
   reward_id: string;
   points_spent: number;
   created_at: string;
+  voucher_code?: string | null;
+  reward_title?: string | null;
+  brand_name?: string | null;
+};
+
+export type LeaderboardSinceRow = {
+  id: string;
+  full_name: string | null;
+  avatar_url: string | null;
+  points: number;
+  co2_saved: number;
 };
 
 export type Database = {
@@ -128,7 +156,7 @@ export type Database = {
       profiles: {
         Row: ProfileRow;
         Insert: Partial<ProfileRow> & Pick<ProfileRow, "id">;
-        Update: Partial<ProfileRow>;
+        Update: Partial<Pick<ProfileRow, "full_name" | "avatar_url">>;
         Relationships: [];
       };
       transit_operators: {
@@ -178,8 +206,28 @@ export type Database = {
         };
         Returns: boolean;
       };
+      redeem_reward: {
+        Args: { p_reward_id: string };
+        Returns: RedemptionRow;
+      };
+      send_friend_request: {
+        Args: { p_code: string };
+        Returns: FriendshipRow;
+      };
+      respond_friend_request: {
+        Args: { p_friendship_id: string; p_accept: boolean };
+        Returns: undefined;
+      };
+      remove_friend: {
+        Args: { p_friend_id: string };
+        Returns: undefined;
+      };
+      leaderboard_since: {
+        Args: { p_since: string; p_limit?: number; p_user_ids?: string[] | null };
+        Returns: LeaderboardSinceRow[];
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
   };
-}
+};
