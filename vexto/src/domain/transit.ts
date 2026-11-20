@@ -64,7 +64,7 @@ interface NvSection {
   to?: NvPlace;
   geojson?: { type?: string; coordinates?: number[][] };
   display_informations?: NvDisplayInformations;
-  stop_date_times?: unknown[];
+  stop_date_times?: { stop_point?: NvPlace["stop_point"] }[];
 }
 
 interface NvJourney {
@@ -164,6 +164,8 @@ export interface TransitLeg {
   direction: string | null;
   /** Number of stops ridden (transit legs). */
   stops: number;
+  /** Every station / stop served, boarding and exit included (transit legs). */
+  stopNames: string[];
   geometry: LngLat[];
   realtime: boolean;
   /** Positive = late, in minutes (realtime only). */
@@ -364,6 +366,7 @@ export function parseJourneys(json: NvJourneysResponse): TransitJourney[] {
         line: null,
         direction: null,
         stops: 0,
+        stopNames: [] as string[],
         geometry,
         realtime: false,
         delayMin: 0,
@@ -377,6 +380,9 @@ export function parseJourneys(json: NvJourneysResponse): TransitJourney[] {
           line: badgeFromDisplay(s.display_informations),
           direction: s.display_informations?.direction ? cleanName(s.display_informations.direction) : null,
           stops: Math.max(1, (s.stop_date_times?.length ?? 2) - 1),
+          stopNames: (s.stop_date_times ?? [])
+            .map((sdt) => cleanName(sdt?.stop_point?.name ?? ""))
+            .filter((n) => n.length > 0),
           realtime,
           delayMin: realtime && baseDep && dep ? Math.round((dep.getTime() - baseDep.getTime()) / 60_000) : 0,
         });
