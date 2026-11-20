@@ -274,7 +274,7 @@ export function modeKind(label: string | undefined): TransitModeKind {
   if (/\brer\b/.test(l)) return "rer";
   if (/m[ée]tro|metro/.test(l)) return "metro";
   if (/tram/.test(l)) return "tram";
-  if (/transilien|train|ter\b|tgv|intercit/.test(l)) return "train";
+  if (/transilien|train|\bter\b|tgv|inoui|ouigo|intercit|lyria|eurostar|tram-train/.test(l)) return "train";
   if (/c[aâ]ble|funiculaire|t[ée]l[ée]ph[ée]rique/.test(l)) return "cable";
   if (/bus|noctilien|navette|car\b/.test(l)) return "bus";
   return "other";

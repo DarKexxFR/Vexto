@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { useIsFocused } from "@react-navigation/native";
 
@@ -17,14 +17,20 @@ import {
   fetchDepartures,
   fetchNearbyStops,
   isTransitSetupError,
+  regionAt,
   searchTransit,
   transitErrorMessage,
+  type TransitRegion,
 } from "@/lib/transit";
 import { useAppNavigation } from "@/navigation/types";
 import { usePrefsStore } from "@/store/usePrefsStore";
 import { colors } from "@/theme/colors";
 
-const QUICK_SEARCHES = ["RER A", "RER B", "RER C", "RER D", "Métro 1", "Métro 4", "Métro 14", "T3a", "Bus 38"];
+const QUICK_SEARCHES: Record<TransitRegion, string[]> = {
+  idfm: ["RER A", "RER B", "RER C", "RER D", "Métro 1", "Métro 4", "Métro 14", "T3a", "Bus 38"],
+  dijon: ["Tram T1", "Tram T2", "Lianes 3", "Lianes 5", "Corol", "Dijon Ville"],
+  sncf: ["TER", "TGV", "Intercités", "Gare"],
+};
 
 type NearbyStatus = "idle" | "loading" | "ready" | "needs-location" | "error";
 
@@ -64,6 +70,10 @@ export function TransitScreen() {
     setNow(new Date());
   }, []);
 
+  // Last known position: picks the local network (Paris, Dijon…) for search.
+  const lastPos = useRef<[number, number] | null>(null);
+  const [region, setRegion] = useState<TransitRegion>("idfm");
+
   const loadNearby = useCallback(async (ask: boolean): Promise<StopAreaSummary[]> => {
     setNearbyStatus("loading");
     let pos = await getKnownPosition();
@@ -72,6 +82,8 @@ export function TransitScreen() {
       setNearbyStatus("needs-location");
       return [];
     }
+    lastPos.current = pos;
+    setRegion(regionAt(pos));
     try {
       const stops = await fetchNearbyStops(pos);
       setNearby(stops);
@@ -115,7 +127,7 @@ export function TransitScreen() {
     }
     setSearching(true);
     const timer = setTimeout(() => {
-      searchTransit(q)
+      searchTransit(q, lastPos.current)
         .then((r) => {
           setResults(r);
           setSearchError(null);
@@ -210,7 +222,7 @@ export function TransitScreen() {
           {setupError ? <Banner tone="warning" title="Horaires temps réel à configurer" message={setupError} /> : null}
 
           <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-4" contentContainerClassName="gap-2">
-            {QUICK_SEARCHES.map((q) => (
+            {QUICK_SEARCHES[region].map((q) => (
               <Pressable
                 key={q}
                 onPress={() => setQuery(q)}
