@@ -5,7 +5,7 @@ import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { Icon, McIcon, type IconName, type McIconName } from "@/components/Icon";
 import { ScreenContainer } from "@/components/ScreenContainer";
-import { Avatar, Chip, ProgressBar, SectionHeader } from "@/components/ui";
+import { Avatar, Chip, ProgressBar, ScreenHeader, SectionHeader } from "@/components/ui";
 import { formatCo2, formatInt, formatMonthYear, pluralize } from "@/domain/format";
 import { shortPlaceLabel } from "@/domain/places";
 import { useUserStats } from "@/hooks/useUserStats";
@@ -135,8 +135,9 @@ export function ProfileScreen() {
 
   return (
     <ScreenContainer>
+      <ScreenHeader title="Mon profil" onBack={() => navigation.goBack()} />
       {/* Identity */}
-      <View className="mb-5 mt-4 items-center">
+      <View className="mb-5 items-center">
         <Avatar name={displayName} seed={userId || "vexto"} size={84} ring={colors.leafSoft} />
         {editing ? (
           <View className="mt-3 w-full flex-row items-center gap-2">
@@ -259,7 +260,7 @@ export function ProfileScreen() {
                   </Pressable>
                 ) : undefined
               }
-              onPress={f.place ? undefined : () => navigation.navigate("Route")}
+              onPress={f.place ? undefined : () => navigation.navigate("Tabs", { screen: "Route" })}
             />
           </View>
         ))}

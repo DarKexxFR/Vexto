@@ -9,7 +9,10 @@ import { Icon } from "@/components/Icon";
 import { MapView } from "@/components/map/MapView";
 import { ModeOptionCard } from "@/components/ModeOptionCard";
 import { NavigationOverlay, type NavResult } from "@/components/NavigationOverlay";
+import { HeaderAvatar } from "@/components/HeaderAvatar";
 import { ScreenContainer } from "@/components/ScreenContainer";
+import { journeyPoints, journeySegments } from "@/components/transit/journeyMap";
+import { JourneyCard } from "@/components/transit/TransitViews";
 import { TripCelebration, type CelebrationData } from "@/components/TripCelebration";
 import { Banner, Chip, ScreenHeader, SectionHeader } from "@/components/ui";
 import { MODES } from "@/constants/modes";
@@ -17,7 +20,7 @@ import { evaluateAchievements, newlyUnlocked } from "@/domain/achievements";
 import { pointsForTrip } from "@/domain/carbon";
 import { equivalencesFor } from "@/domain/equivalences";
 import { forestState } from "@/domain/forest";
-import { formatCo2, formatDuration } from "@/domain/format";
+import { formatCo2, formatDuration, formatTime } from "@/domain/format";
 import { levelForPoints } from "@/domain/levels";
 import { isSamePlace, shortPlaceLabel, type Place } from "@/domain/places";
 import {
@@ -27,6 +30,7 @@ import {
   type RoutesByProfile,
 } from "@/domain/routing";
 import { computeStreak, summarizeTrips, type TripLike } from "@/domain/stats";
+import { minutesUntil, transitLegs, type TransitJourney } from "@/domain/transit";
 import { getKnownPosition, useCurrentLocation } from "@/hooks/useCurrentLocation";
 import { config, isMapboxConfigured } from "@/lib/config";
 import { friendlyError } from "@/lib/errors";
@@ -34,6 +38,7 @@ import { lineString, point } from "@/lib/geo";
 import { haptic } from "@/lib/haptics";
 import { getRoutes } from "@/lib/mapbox";
 import { refreshProfile } from "@/lib/sync";
+import { fetchJourneys, isTransitSetupError, transitErrorMessage } from "@/lib/transit";
 import { createTrip, rejectionMessage, toListItem, verifyTrip } from "@/lib/trips";
 import { useAppNavigation } from "@/navigation/types";
 import { useAppStore } from "@/store/useAppStore";
@@ -83,6 +88,10 @@ export function RouteScreen() {
   const [navVisible, setNavVisible] = useState(false);
   const [saving, setSaving] = useState(false);
   const [celebration, setCelebration] = useState<CelebrationData | null>(null);
+  const [journeys, setJourneys] = useState<TransitJourney[] | null>(null);
+  const [journeysLoading, setJourneysLoading] = useState(false);
+  const [journeyIdx, setJourneyIdx] = useState(0);
+  const [transitNotice, setTransitNotice] = useState<string | null>(null);
   /** Trip awaiting upload; keeps the created id so a retry never duplicates it. */
   const pendingTrip = useRef<{ result: NavResult; tripId: string | null } | null>(null);
 
@@ -150,13 +159,54 @@ export function RouteScreen() {
     return () => ac.abort();
   }, [start, end, reloadKey]);
 
-  const planContext = useMemo<PlanContext>(
-    () => ({
+  // Real public transport itineraries (IDFM PRIM) with departure times.
+  useEffect(() => {
+    setJourneyIdx(0);
+    if (!start || !end) {
+      setJourneys(null);
+      return;
+    }
+    let alive = true;
+    setJourneysLoading(true);
+    fetchJourneys(start.coords, end.coords)
+      .then((list) => {
+        if (!alive) return;
+        setJourneys(list);
+        setTransitNotice(null);
+      })
+      .catch((e: unknown) => {
+        if (!alive) return;
+        setJourneys(null);
+        setTransitNotice(isTransitSetupError(e) ? transitErrorMessage(e) : null);
+      })
+      .finally(() => alive && setJourneysLoading(false));
+    return () => {
+      alive = false;
+    };
+  }, [start, end, reloadKey]);
+
+  const selectedJourney = journeys?.[journeyIdx] ?? null;
+
+  const planContext = useMemo<PlanContext>(() => {
+    let transit: PlanContext["transit"] = null;
+    if (selectedJourney) {
+      const first = transitLegs(selectedJourney)[0];
+      const line = first?.line ? `${first.line.kind === "bus" ? "Bus" : first.line.modeLabel} ${first.line.code}` : "Transports";
+      const at = first?.departure ? ` à ${formatTime(first.departure)}` : "";
+      const corr = selectedJourney.transfers > 0 ? ` · ${selectedJourney.transfers} corresp.` : "";
+      transit = {
+        durationMin: Math.max(selectedJourney.durationMin, minutesUntil(selectedJourney.arrival)),
+        distanceKm: selectedJourney.distanceKm > 0 ? selectedJourney.distanceKm : (routes?.["driving-traffic"]?.distanceKm ?? 0),
+        summary: `${line}${at}${corr} · horaires temps réel`,
+        path: null,
+      };
+    }
+    return {
       weather: advice ? { badForSoftModes: advice.badForSoftModes, reason: advice.reason } : null,
       owned: { bike: owned.bike, eScooter: owned.eScooter },
-    }),
-    [advice, owned],
-  );
+      transit,
+    };
+  }, [advice, owned, selectedJourney, routes]);
   const options = useMemo(() => (routes ? buildModeOptions(routes, planContext) : []), [routes, planContext]);
   const recommended = recommendedOption(options);
   const preferred = preferredMode
@@ -167,6 +217,8 @@ export function RouteScreen() {
   const hasRoute = routeStatus === "success" && active !== null;
   const activeMeta = activeMode ? MODES[activeMode] : null;
   const activeEquivalence = active ? (equivalencesFor(active.co2SavedKg, 1)[0] ?? null) : null;
+  const transitSegments = useMemo(() => journeySegments(selectedJourney), [selectedJourney]);
+  const transitPoints = useMemo(() => journeyPoints(selectedJourney), [selectedJourney]);
 
   const favoriteOf = (place: Place | null): FavoriteKind | null => {
     if (!place) return null;
@@ -310,7 +362,7 @@ export function RouteScreen() {
 
   return (
     <ScreenContainer>
-      <ScreenHeader title="Trajet" subtitle="Comparez les modes, gagnez des points, faites pousser votre forêt." />
+      <ScreenHeader title="Trajet" subtitle="Comparez les modes, gagnez des points, faites pousser votre forêt." right={<HeaderAvatar />} />
 
       {/* Search */}
       <Card className="mb-3 p-3">
@@ -430,6 +482,8 @@ export function RouteScreen() {
             routeGeometry={active?.path?.geometry ?? null}
             routeColor={activeMeta?.color}
             routeDashed={activeMode === "publicTransit"}
+            segments={activeMode === "publicTransit" ? transitSegments : null}
+            points={activeMode === "publicTransit" ? transitPoints : null}
             height={230}
           />
         </View>
@@ -471,6 +525,34 @@ export function RouteScreen() {
               />
             ))}
           </View>
+
+          {activeMode === "publicTransit" ? (
+            journeys && journeys.length > 0 ? (
+              <>
+                <SectionHeader title="Prochains départs · temps réel" />
+                <View className="mb-4 gap-2">
+                  {journeys.map((j, i) => (
+                    <JourneyCard
+                      key={j.id}
+                      journey={j}
+                      now={new Date()}
+                      selected={i === journeyIdx}
+                      onPress={() => setJourneyIdx(i)}
+                    />
+                  ))}
+                </View>
+              </>
+            ) : journeysLoading ? (
+              <Card className="mb-4 flex-row items-center gap-3">
+                <ActivityIndicator color={colors.sky} />
+                <Text className="text-sm text-muted">Recherche des prochains bus, métros et RER…</Text>
+              </Card>
+            ) : transitNotice ? (
+              <Banner tone="info" title="Horaires réels non configurés" message={`${transitNotice} En attendant, la durée est estimée.`} />
+            ) : journeys && journeys.length === 0 ? (
+              <Banner tone="info" message="Aucun transport en commun trouvé pour ce trajet à cette heure-ci." />
+            ) : null
+          ) : null}
 
           <LinearGradient
             colors={[colors.forest, colors.forestSoft]}
@@ -534,6 +616,7 @@ export function RouteScreen() {
         mode={activeMode ?? "publicTransit"}
         destination={end}
         initialPath={active?.path ?? null}
+        journey={activeMode === "publicTransit" ? selectedJourney : null}
         voiceEnabled={voiceGuidance}
         onToggleVoice={() => setVoiceGuidance(!voiceGuidance)}
         onFinish={(result) => {

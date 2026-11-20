@@ -6,6 +6,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon, McIcon } from "@/components/Icon";
 import { ManeuverIcon } from "@/components/ManeuverIcon";
 import { MapView } from "@/components/map/MapView";
+import { journeyPoints, journeySegments } from "@/components/transit/journeyMap";
+import { LineBadgeView } from "@/components/transit/TransitViews";
 import { MODES } from "@/constants/modes";
 import { co2SavedKg, pointsForTrip } from "@/domain/carbon";
 import { formatClock, formatCo2, formatDistance, formatTime } from "@/domain/format";
@@ -24,6 +26,7 @@ import {
 } from "@/domain/navigation";
 import { shortPlaceLabel, type Place } from "@/domain/places";
 import { profileForMode, transitDurationMin, type RoutedPath } from "@/domain/routing";
+import { formatWait, legInstruction, type TransitJourney, type TransitLeg } from "@/domain/transit";
 import { useTripTracker } from "@/hooks/useTripTracker";
 import { confirmAsync } from "@/lib/dialogs";
 import { haptic } from "@/lib/haptics";
@@ -47,6 +50,8 @@ interface NavigationOverlayProps {
   destination: Place | null;
   /** Planned path for the selected mode (re-planned from the first GPS fix). */
   initialPath: RoutedPath | null;
+  /** Public transport itinerary to follow leg by leg (IDFM timetables). */
+  journey?: TransitJourney | null;
   voiceEnabled: boolean;
   onToggleVoice: () => void;
   onFinish: (result: NavResult) => void;
@@ -62,6 +67,7 @@ export function NavigationOverlay({
   mode,
   destination,
   initialPath,
+  journey = null,
   voiceEnabled,
   onToggleVoice,
   onFinish,
@@ -78,7 +84,11 @@ export function NavigationOverlay({
   const [following, setFollowing] = useState(true);
   const [recenterSignal, setRecenterSignal] = useState(0);
   const [arrived, setArrived] = useState(false);
-  const [, setTick] = useState(0);
+  const [tick, setTick] = useState(0);
+  const [legIndex, setLegIndex] = useState(0);
+  // "Waiting" sections carry no instruction: the boarding banner already shows the countdown.
+  const legs: TransitLeg[] = useMemo(() => (journey?.legs ?? []).filter((l) => l.type !== "wait"), [journey]);
+  const currentLeg = journey ? (legs[legIndex] ?? null) : null;
 
   const spoken = useRef(new Set<string>());
   const offRouteCount = useRef(0);
@@ -98,6 +108,7 @@ export function NavigationOverlay({
   useEffect(() => {
     if (visible) {
       setPath(initialPath);
+      setLegIndex(0);
       setArrived(false);
       setFollowing(true);
       spoken.current = new Set();
@@ -106,11 +117,13 @@ export function NavigationOverlay({
       arrivalAnnounced.current = false;
       void tracker.start();
       activateKeepAwakeAsync(KEEP_AWAKE_TAG).catch(() => undefined);
-      say(
-        turnByTurn
-          ? "C'est parti !"
-          : `C'est parti. Direction ${destination ? shortPlaceLabel(destination.label) : "votre destination"}.`,
-      );
+      if (!journey) {
+        say(
+          turnByTurn
+            ? "C'est parti !"
+            : `C'est parti. Direction ${destination ? shortPlaceLabel(destination.label) : "votre destination"}.`,
+        );
+      }
     } else {
       tracker.stop();
       stopSpeaking();
@@ -133,6 +146,8 @@ export function NavigationOverlay({
   const totalM = cum && cum.length > 0 ? (cum[cum.length - 1] ?? 0) : 0;
 
   const pos = tracker.position;
+  const journeySegmentsMemo = useMemo(() => journeySegments(journey), [journey]);
+  const journeyPointsMemo = useMemo(() => journeyPoints(journey), [journey]);
   const projection = useMemo(
     () => (pos && line && cum ? projectOnLine(pos, line, cum) : null),
     [pos, line, cum],
@@ -207,12 +222,31 @@ export function NavigationOverlay({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pos]);
 
+  // Transit itinerary: advance legs by position (near the leg's end) or, when
+  // GPS is lost underground, by the timetable (scheduled arrival passed).
+  useEffect(() => {
+    if (!visible || !journey || !currentLeg || legIndex >= legs.length - 1) return;
+    const nearEnd = pos && currentLeg.toCoords ? metersBetween(pos, currentLeg.toCoords) < 60 : false;
+    const overdue = currentLeg.arrival ? Date.now() > currentLeg.arrival.getTime() + 60_000 : false;
+    if (nearEnd || overdue) setLegIndex((i) => Math.min(i + 1, legs.length - 1));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pos, tick, visible]);
+
+  useEffect(() => {
+    if (!visible || !currentLeg) return;
+    const when =
+      currentLeg.type === "transit" && currentLeg.departure ? ` Départ à ${formatTime(currentLeg.departure)}.` : "";
+    say(`${legInstruction(currentLeg)}.${when}`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [legIndex, visible]);
+
   // Derived figures -------------------------------------------------------------------
   const elapsedS = tracker.getElapsedSeconds();
   const traveledKm = tracker.traveledKm;
   const remainingM = guidance?.remainingM ?? (distToDestM != null ? distToDestM * 1.25 : null);
-  const etaMin =
-    remainingM == null
+  const etaMin = journey
+    ? Math.max(0, (journey.arrival.getTime() - Date.now()) / 60_000)
+    : remainingM == null
       ? null
       : turnByTurn && path
         ? remainingMinutes(remainingM, path.distanceKm, path.durationMin)
@@ -251,7 +285,7 @@ export function NavigationOverlay({
   };
 
   // Banner content ---------------------------------------------------------------------
-  let banner: { icon: React.ReactNode; title: string; subtitle: string; tone: string };
+  let banner: { icon: React.ReactNode; title: string; subtitle: string; tone: string; iconBg?: string };
   if (tracker.status === "denied") {
     banner = {
       icon: <Icon name="alert-circle-outline" size={30} color={colors.white} />,
@@ -266,6 +300,40 @@ export function NavigationOverlay({
       subtitle: "Touchez « Terminer » pour valider vos points.",
       tone: colors.leaf,
     };
+  } else if (journey && currentLeg) {
+    const nextTransit = legs.slice(legIndex).find((l) => l.type === "transit");
+    if (currentLeg.type === "transit" && currentLeg.line) {
+      const boarded = currentLeg.departure ? Date.now() >= currentLeg.departure.getTime() : true;
+      banner = {
+        icon: <LineBadgeView line={currentLeg.line} size="md" />,
+        title: boarded
+          ? `Descendez à ${currentLeg.to}`
+          : `${currentLeg.line.kind === "bus" ? "Bus" : currentLeg.line.modeLabel} ${currentLeg.line.code}${currentLeg.direction ? ` → ${currentLeg.direction}` : ""}`,
+        subtitle: boarded
+          ? `${currentLeg.stops} arrêt${currentLeg.stops > 1 ? "s" : ""} · arrivée ${currentLeg.arrival ? formatTime(currentLeg.arrival) : "—"}`
+          : `Départ ${currentLeg.departure ? `${formatTime(currentLeg.departure)} (${formatWait(currentLeg.departure)})` : "imminent"} · ${currentLeg.from}`,
+        tone: colors.forest,
+        iconBg: colors.white,
+      };
+    } else if (currentLeg.type === "transfer" || currentLeg.type === "wait") {
+      banner = {
+        icon: <McIcon name="transit-transfer" size={30} color={colors.white} />,
+        title: `Correspondance à ${currentLeg.from}`,
+        subtitle: nextTransit?.line
+          ? `Puis ${nextTransit.line.modeLabel} ${nextTransit.line.code}${nextTransit.departure ? ` à ${formatTime(nextTransit.departure)}` : ""}`
+          : `${currentLeg.durationMin} min`,
+        tone: colors.forest,
+      };
+    } else {
+      banner = {
+        icon: <McIcon name="walk" size={30} color={colors.white} />,
+        title: `Marchez jusqu'à ${currentLeg.to || (destination ? shortPlaceLabel(destination.label) : "destination")}`,
+        subtitle: nextTransit?.line
+          ? `${currentLeg.durationMin} min · ${nextTransit.line.modeLabel} ${nextTransit.line.code}${nextTransit.departure ? ` à ${formatTime(nextTransit.departure)}` : ""}`
+          : `Environ ${Math.max(1, currentLeg.durationMin)} min`,
+        tone: colors.forest,
+      };
+    }
   } else if (!pos) {
     banner = {
       icon: <Icon name="locate" size={28} color={colors.white} />,
@@ -316,6 +384,8 @@ export function NavigationOverlay({
           routeGeometry={path?.geometry ?? null}
           routeColor={routeColor}
           routeDashed={!turnByTurn}
+          segments={journeySegmentsMemo}
+          points={journeyPointsMemo}
           traveled={tracker.track}
           user={pos}
           heading={tracker.headingDeg}
@@ -327,9 +397,14 @@ export function NavigationOverlay({
         {/* Top maneuver banner */}
         <View style={{ top: insets.top + 8 }} className="absolute left-3 right-3">
           <View style={[{ backgroundColor: banner.tone }, shadows.floating]} className="flex-row items-center gap-3 rounded-3xl p-4">
-            <View className="h-14 w-14 items-center justify-center rounded-2xl bg-white/15">{banner.icon}</View>
+            <View
+              className="h-14 w-14 items-center justify-center rounded-2xl bg-white/15"
+              style={banner.iconBg ? { backgroundColor: banner.iconBg } : undefined}
+            >
+              {banner.icon}
+            </View>
             <View className="flex-1">
-              <Text className="text-xl font-extrabold text-white" numberOfLines={1}>
+              <Text className="text-xl font-extrabold text-white" numberOfLines={2}>
                 {banner.title}
               </Text>
               <Text className="text-sm text-white/85" numberOfLines={2}>
@@ -346,6 +421,22 @@ export function NavigationOverlay({
               <Icon name="close" size={18} color={colors.white} />
             </Pressable>
           </View>
+          {journey && !arrived && legIndex < legs.length - 1 ? (
+            <Pressable
+              onPress={() => {
+                haptic.tap();
+                setLegIndex((i) => Math.min(i + 1, legs.length - 1));
+              }}
+              accessibilityRole="button"
+              className="mt-2 flex-row items-center gap-1 self-end rounded-full bg-card px-3 py-1.5 active:opacity-70"
+              style={shadows.soft}
+            >
+              <Text className="text-xs font-bold text-forest">
+                Étape {legIndex + 1}/{legs.length} · suivante
+              </Text>
+              <Icon name="chevron-forward" size={14} />
+            </Pressable>
+          ) : null}
           {paused ? (
             <View className="mt-2 self-center rounded-full bg-amber px-3 py-1">
               <Text className="text-xs font-bold text-white">En pause · la distance n'est pas comptée</Text>

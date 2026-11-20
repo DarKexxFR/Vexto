@@ -120,6 +120,45 @@ export function buildMapHtml(token: string): string {
       if (map.getSource(id)) map.removeSource(id);
     }
 
+    var LINE_LAYOUT = { "line-join": "round", "line-cap": "round" };
+
+    function setSegments(segs) {
+      var fc = { type: "FeatureCollection", features: segs.map(function (g) {
+        return { type: "Feature", properties: { color: g.color || ${JSON.stringify(colors.leaf)}, dashed: !!g.dashed },
+          geometry: { type: "LineString", coordinates: g.coordinates } };
+      }) };
+      if (map.getSource("segments")) { map.getSource("segments").setData(fc); return; }
+      var below = map.getLayer("traveled") ? "traveled" : undefined;
+      map.addSource("segments", { type: "geojson", data: fc });
+      map.addLayer({ id: "segments-casing", type: "line", source: "segments", layout: LINE_LAYOUT,
+        filter: ["==", ["get", "dashed"], false],
+        paint: { "line-color": "#ffffff", "line-width": 10 } }, below);
+      map.addLayer({ id: "segments-solid", type: "line", source: "segments", layout: LINE_LAYOUT,
+        filter: ["==", ["get", "dashed"], false],
+        paint: { "line-color": ["get", "color"], "line-width": 6 } }, below);
+      map.addLayer({ id: "segments-dashed", type: "line", source: "segments", layout: LINE_LAYOUT,
+        filter: ["==", ["get", "dashed"], true],
+        paint: { "line-color": ["get", "color"], "line-width": 4, "line-dasharray": [0.4, 1.8] } }, below);
+    }
+
+    function clearSegments() {
+      ["segments-dashed", "segments-solid", "segments-casing"].forEach(function (id) {
+        if (map.getLayer(id)) map.removeLayer(id);
+      });
+      if (map.getSource("segments")) map.removeSource("segments");
+    }
+
+    function setPoints(pts) {
+      var fc = { type: "FeatureCollection", features: pts.map(function (p) {
+        return { type: "Feature", properties: { color: p.color || ${JSON.stringify(colors.forest)} },
+          geometry: { type: "Point", coordinates: p.coordinates } };
+      }) };
+      if (map.getSource("points")) { map.getSource("points").setData(fc); return; }
+      map.addSource("points", { type: "geojson", data: fc });
+      map.addLayer({ id: "points", type: "circle", source: "points",
+        paint: { "circle-radius": 5, "circle-color": "#ffffff", "circle-stroke-width": 3, "circle-stroke-color": ["get", "color"] } });
+    }
+
     function fitTo(points) {
       if (points.length === 0) return;
       if (points.length === 1) { map.flyTo({ center: points[0], zoom: 14 }); return; }
@@ -139,7 +178,18 @@ export function buildMapHtml(token: string): string {
           else endMarker = new mapboxgl.Marker({ element: el("pin-end", "<span>🏁</span>"), anchor: "bottom" }).setLngLat(s.end).addTo(map);
         } else if (endMarker) { endMarker.remove(); endMarker = null; }
 
-        if (s.line && s.line.coordinates && s.line.coordinates.length > 1) {
+        setPoints(s.points || []);
+        if (s.segments && s.segments.length) {
+          removeLine("route"); removeLine("route-casing");
+          setSegments(s.segments);
+          if (s.fit !== false) {
+            var all = [];
+            s.segments.forEach(function (g) { all = all.concat(g.coordinates); });
+            if (s.end) all.push(s.end);
+            fitTo(all);
+          }
+        } else if (s.line && s.line.coordinates && s.line.coordinates.length > 1) {
+          clearSegments();
           // Keep the travelled breadcrumb on top of the planned route.
           var below = map.getLayer("traveled") ? "traveled" : undefined;
           setLine("route-casing", s.line, { "line-color": "#ffffff", "line-width": 10 }, below);
@@ -150,6 +200,7 @@ export function buildMapHtml(token: string): string {
           setLine("route", s.line, paint, below);
           if (s.fit !== false) fitTo(s.line.coordinates);
         } else {
+          clearSegments();
           removeLine("route"); removeLine("route-casing");
           if (s.fit !== false) {
             var pts = [];

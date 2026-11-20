@@ -1,0 +1,11 @@
+{"type":"FeatureCollection","features":[
+ {"type":"Feature","properties":{"route_id":"IDFM:C01742","route_short_name":"A","route_long_name":"RER A","route_type":"2","networkname":"RER","route_color":"E2231A"},
+  "geometry":{"type":"MultiLineString","coordinates":[[[2.30,48.86],[2.33,48.86],[2.35,48.86],[2.37,48.86],[2.40,48.86]],[[2.37,48.86],[2.40,48.84],[2.45,48.83]]]}},
+ {"type":"Feature","properties":{"route_id":"IDFM:C01742","route_short_name":"A","route_type":"2","networkname":"RER"},
+  "geometry":{"type":"LineString","coordinates":[[2.30,48.86],[2.25,48.89]]}},
+ {"type":"Feature","properties":{"route_id":"IDFM:C01371","route_short_name":"1","route_long_name":"Métro 1","route_type":"1","route_color":"#FFCD00"},
+  "geometry":{"type":"LineString","coordinates":[[2.29,48.875],[2.33,48.87],[2.37,48.87]]}},
+ {"type":"Feature","properties":{"route_id":"IDFM:C01077","route_short_name":"38","route_type":"3","networkname":"Bus RATP"},
+  "geometry":{"type":"LineString","coordinates":[[2.34,48.83],[2.34,48.89]]}},
+ {"type":"Feature","properties":{"route_id":"IDFM:BAD","route_short_name":"X","route_type":"1"},"geometry":null}
+]}

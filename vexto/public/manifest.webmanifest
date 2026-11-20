@@ -1,0 +1,17 @@
+{
+  "name": "Vexto — trajets bas-carbone",
+  "short_name": "Vexto",
+  "description": "Trajets bas-carbone, horaires RATP/IDFM en temps réel, points et forêt virtuelle.",
+  "lang": "fr",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FAF9F5",
+  "theme_color": "#102B19",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
