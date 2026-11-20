@@ -6,6 +6,7 @@ import {
   type RoutingProfile,
 } from "@/domain/routing";
 import { config } from "@/lib/config";
+import { isDeviceOffline } from "@/lib/online";
 import type { GeoLineString } from "@/types/database";
 
 const GEOCODE_BASE = "https://api.mapbox.com/geocoding/v5/mapbox.places";
@@ -95,7 +96,11 @@ async function fetchJson<T>(url: string, signal: AbortSignal | undefined, what: 
     res = await fetch(url, { signal });
   } catch (e) {
     if (signal?.aborted) throw e;
-    throw new Error("Pas de connexion internet.");
+    throw new Error(
+      isDeviceOffline()
+        ? "Pas de connexion internet."
+        : `${what} injoignable. Vérifiez qu'un bloqueur de contenu ou un VPN ne bloque pas api.mapbox.com, puis réessayez.`,
+    );
   }
   if (res.status === 401) throw new Error("Token Mapbox invalide (401).");
   if (!res.ok) throw new Error(`${what} indisponible (${res.status}).`);

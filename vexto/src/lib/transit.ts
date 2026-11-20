@@ -29,9 +29,10 @@ import {
   type TransitJourney,
   type TransitSearchResult,
 } from "@/domain/transit";
+import { isDeviceOffline } from "@/lib/online";
 import { supabase } from "@/lib/supabase";
 
-export type TransitErrorCode = "not_deployed" | "key_missing" | "unauthorized" | "quota" | "network" | "unknown";
+export type TransitErrorCode = "unreachable" | "not_deployed" | "key_missing" | "unauthorized" | "quota" | "network" | "unknown";
 
 export class TransitError extends Error {
   readonly code: TransitErrorCode;
@@ -49,6 +50,8 @@ const MESSAGES: Record<TransitErrorCode, string> = {
   unauthorized: "La clé PRIM a été refusée par Île-de-France Mobilités. Vérifiez-la sur prim.iledefrance-mobilites.fr.",
   quota: "Quota de requêtes PRIM atteint pour le moment. Réessayez dans quelques minutes.",
   network: "Pas de connexion internet. Réessayez dans un instant.",
+  unreachable:
+    "Le service d'horaires ne répond pas. Le plus souvent, la fonction Supabase « transit » n'est pas encore déployée (voir README, étape 2).",
   unknown: "Service d'horaires momentanément indisponible.",
 };
 
@@ -58,7 +61,7 @@ export function transitErrorMessage(e: unknown): string {
 
 /** True when the feature itself is not configured (vs. a transient failure). */
 export function isTransitSetupError(e: unknown): boolean {
-  return e instanceof TransitError && (e.code === "not_deployed" || e.code === "key_missing" || e.code === "unauthorized");
+  return e instanceof TransitError && (e.code === "not_deployed" || e.code === "unreachable" || e.code === "key_missing" || e.code === "unauthorized");
 }
 
 async function invoke<T>(body: Record<string, unknown>): Promise<T> {
@@ -81,7 +84,10 @@ async function invoke<T>(body: Record<string, unknown>): Promise<T> {
     throw new TransitError("unknown", payload?.error);
   }
   if (error instanceof FunctionsFetchError || error instanceof FunctionsRelayError) {
-    throw new TransitError(error instanceof FunctionsRelayError ? "not_deployed" : "network");
+    if (error instanceof FunctionsRelayError) throw new TransitError("not_deployed");
+    // A missing function answers 404 without CORS headers: the browser then
+    // reports a network failure although the phone is online.
+    throw new TransitError(isDeviceOffline() ? "network" : "unreachable");
   }
   throw new TransitError("unknown", error instanceof Error ? error.message : String(error));
 }
