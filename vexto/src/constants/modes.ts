@@ -1,11 +1,21 @@
+import type { ComponentProps } from "react";
+import type { MaterialCommunityIcons } from "@expo/vector-icons";
+
+import { colors } from "@/theme/colors";
 import type { TripMode } from "@/types/database";
+
+export type McIconName = ComponentProps<typeof MaterialCommunityIcons>["name"];
 
 export interface ModeMeta {
   mode: TripMode;
   label: string;
-  icon: string; // emoji placeholder; swap for vector icons later
-  /** Rough average speed (km/h) to estimate trip duration. */
-  speedKmh: number;
+  shortLabel: string;
+  emoji: string;
+  icon: McIconName;
+  /** Foreground / accent color. */
+  color: string;
+  /** Soft background tint. */
+  tint: string;
   /** Whether this mode requires PostGIS anti-cheat validation. */
   requiresGeoCheck: boolean;
 }
@@ -14,58 +24,51 @@ export const MODES: Record<TripMode, ModeMeta> = {
   carThermal: {
     mode: "carThermal",
     label: "Voiture",
-    icon: "🚗",
-    speedKmh: 22,
+    shortLabel: "Voiture",
+    emoji: "🚗",
+    icon: "car-side",
+    color: "#5E6B64",
+    tint: "#ECEDEA",
     requiresGeoCheck: false,
   },
   publicTransit: {
     mode: "publicTransit",
-    label: "Transport en commun",
-    icon: "🚆",
-    speedKmh: 28,
+    label: "Transports en commun",
+    shortLabel: "Transports",
+    emoji: "🚆",
+    icon: "subway-variant",
+    color: colors.sky,
+    tint: colors.skySoft,
     requiresGeoCheck: true,
   },
   bike: {
     mode: "bike",
     label: "Vélo",
-    icon: "🚲",
-    speedKmh: 15,
+    shortLabel: "Vélo",
+    emoji: "🚲",
+    icon: "bike",
+    color: colors.leaf,
+    tint: colors.leafSoft,
     requiresGeoCheck: false,
   },
   eScooter: {
     mode: "eScooter",
     label: "Trottinette électrique",
-    icon: "🛴",
-    speedKmh: 18,
+    shortLabel: "Trottinette",
+    emoji: "🛴",
+    icon: "human-scooter",
+    color: colors.violet,
+    tint: colors.violetSoft,
     requiresGeoCheck: false,
   },
   walk: {
     mode: "walk",
     label: "Marche",
-    icon: "🚶",
-    speedKmh: 4.8,
+    shortLabel: "Marche",
+    emoji: "🚶",
+    icon: "walk",
+    color: colors.amber,
+    tint: colors.amberSoft,
     requiresGeoCheck: false,
   },
 };
-
-/** Modes offered as low-carbon alternatives (everything but the car baseline). */
-export const ALTERNATIVE_MODES: TripMode[] = [
-  "publicTransit",
-  "bike",
-  "eScooter",
-  "walk",
-];
-
-/** All selectable modes for routing/navigation, car first (the baseline). */
-export const ROUTE_MODES: TripMode[] = [
-  "carThermal",
-  "publicTransit",
-  "bike",
-  "eScooter",
-  "walk",
-];
-
-export function estimateMinutes(mode: TripMode, distanceKm: number): number {
-  const meta = MODES[mode];
-  return Math.max(1, Math.round((distanceKm / meta.speedKmh) * 60));
-}

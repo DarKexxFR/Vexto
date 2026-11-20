@@ -93,6 +93,12 @@ export async function signInWithProvider(provider: Provider): Promise<void> {
   }
 }
 
+/** Send a password-reset email (the link opens the app via its scheme). */
+export async function requestPasswordReset(email: string): Promise<void> {
+  const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo });
+  if (error) throw error;
+}
+
 /** Sign out the current user. */
 export async function signOut(): Promise<void> {
   const { error } = await supabase.auth.signOut();
@@ -104,12 +110,17 @@ export function authErrorMessage(error: unknown): string {
   const raw = error instanceof Error ? error.message : String(error);
   const msg = raw.toLowerCase();
   if (msg.includes("invalid login")) return "Email ou mot de passe incorrect.";
+  if (msg.includes("email not confirmed"))
+    return "Confirmez d'abord votre adresse via l'email reçu à l'inscription.";
   if (msg.includes("already registered") || msg.includes("already exists"))
     return "Un compte existe déjà avec cet email.";
   if (msg.includes("password") && msg.includes("at least"))
     return "Le mot de passe doit contenir au moins 6 caractères.";
   if (msg.includes("unable to validate email") || msg.includes("invalid email"))
     return "Adresse email invalide.";
-  if (msg.includes("network")) return "Problème de connexion réseau.";
+  if (msg.includes("rate limit") || msg.includes("too many"))
+    return "Trop de tentatives. Patientez quelques minutes avant de réessayer.";
+  if (msg.includes("network") || msg.includes("failed to fetch"))
+    return "Problème de connexion réseau.";
   return raw;
 }
