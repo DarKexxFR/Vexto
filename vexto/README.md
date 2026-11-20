@@ -14,6 +14,7 @@ amis, échanger ses crédits contre des récompenses… et faire pousser sa for�
 | 🗣️ **Navigation guidée** | Virage par virage avec **voix en français**, recalcul automatique si vous déviez, détection d'arrivée, pause, écran maintenu allumé ; en transports, guidage étape par étape (marche → montez dans le RER A direction… → descendez à…). |
 | 🏆 **Gamification** | Points calculés et vérifiés côté serveur (anti-triche), niveaux, série de jours 🔥, 16 succès, classement général / amis / semaine, code ami, récompenses avec bons de réduction. |
 | 🎁 **Surprise du chef : Ma Forêt Vexto** | Une forêt vivante qui pousse avec le CO₂ évité (1 arbre = 25 kg, 5 stades de croissance), saisons et ciel selon l'heure, faune qui revient, équivalences concrètes (km en voiture, repas, jeans…), partage. Plus un **coach météo** qui conseille le meilleur mode du moment. |
+| 🚲 **Vélib' en temps réel** | Stations proches dans Horaires ; en mode vélo, où prendre un vélo au départ (mécaniques / électriques) et où le reposer à l'arrivée (places libres), aussi sur la carte. Données ouvertes Paris / Vélib' Métropole, sans clé. |
 | 🌐 **Site web / PWA** | La même app dans le navigateur, installable sur l'écran d'accueil, déployée automatiquement sur GitHub Pages. |
 
 ## Stack

@@ -13,6 +13,10 @@ import { HeaderAvatar } from "@/components/HeaderAvatar";
 import { ScreenContainer } from "@/components/ScreenContainer";
 import { journeyPoints, journeySegments } from "@/components/transit/journeyMap";
 import { JourneyCard, JourneySteps } from "@/components/transit/TransitViews";
+import { VelibCard, VelibLegend } from "@/components/bikeshare/VelibViews";
+import type { MapPoint } from "@/components/map/useMapSync";
+import { inVelibArea, type BikeStation } from "@/domain/bikeshare";
+import { fetchVelibStations } from "@/lib/velib";
 import { TripCelebration, type CelebrationData } from "@/components/TripCelebration";
 import { Banner, Chip, ScreenHeader, SectionHeader } from "@/components/ui";
 import { MODES } from "@/constants/modes";
@@ -184,6 +188,44 @@ export function RouteScreen() {
       alive = false;
     };
   }, [start, end, reloadKey]);
+
+  // Vélib' stations: a bike near the start, a free dock near the destination.
+  const [velibStart, setVelibStart] = useState<BikeStation[] | null>(null);
+  const [velibEnd, setVelibEnd] = useState<BikeStation[] | null>(null);
+  const [velibLoading, setVelibLoading] = useState(false);
+  const [velibError, setVelibError] = useState<string | null>(null);
+  const velibAvailable = !!start && !!end && inVelibArea(start.coords) && inVelibArea(end.coords);
+  useEffect(() => {
+    setVelibStart(null);
+    setVelibEnd(null);
+    setVelibError(null);
+    if (!start || !end || !inVelibArea(start.coords) || !inVelibArea(end.coords)) return;
+    const ac = new AbortController();
+    setVelibLoading(true);
+    Promise.all([
+      fetchVelibStations(start.coords, { need: "rent", limit: 3, signal: ac.signal }),
+      fetchVelibStations(end.coords, { need: "return", limit: 3, signal: ac.signal }),
+    ])
+      .then(([a, b]) => {
+        setVelibStart(a);
+        setVelibEnd(b);
+      })
+      .catch(() => {
+        if (!ac.signal.aborted) setVelibError("Disponibilités Vélib' indisponibles pour le moment.");
+      })
+      .finally(() => {
+        if (!ac.signal.aborted) setVelibLoading(false);
+      });
+    return () => ac.abort();
+  }, [start, end, reloadKey]);
+
+  const velibPoints = useMemo<MapPoint[] | null>(() => {
+    const pts: MapPoint[] = [
+      ...(velibStart ?? []).map((s) => ({ coordinates: s.coords, color: colors.leaf, label: `🚲 ${s.bikes}`, major: true })),
+      ...(velibEnd ?? []).map((s) => ({ coordinates: s.coords, color: colors.leaf, label: `🅿️ ${s.docks}`, major: true })),
+    ];
+    return pts.length > 0 ? pts : null;
+  }, [velibStart, velibEnd]);
 
   const selectedJourney = journeys?.[journeyIdx] ?? null;
 
@@ -483,7 +525,7 @@ export function RouteScreen() {
             routeColor={activeMeta?.color}
             routeDashed={activeMode === "publicTransit"}
             segments={activeMode === "publicTransit" ? transitSegments : null}
-            points={activeMode === "publicTransit" ? transitPoints : null}
+            points={activeMode === "publicTransit" ? transitPoints : activeMode === "bike" ? velibPoints : null}
             height={230}
           />
         </View>
@@ -525,6 +567,29 @@ export function RouteScreen() {
               />
             ))}
           </View>
+
+          {activeMode === "bike" && velibAvailable ? (
+            <>
+              <SectionHeader title="Vélib' · temps réel" />
+              <View className="mb-4 gap-2">
+                <VelibCard
+                  title="Prendre un vélo près du départ"
+                  stations={velibStart}
+                  loading={velibLoading}
+                  error={velibError}
+                  emptyText="Aucun vélo disponible dans un rayon de 600 m."
+                />
+                <VelibCard
+                  title="Le reposer près de l'arrivée"
+                  stations={velibEnd}
+                  loading={velibLoading}
+                  error={velibError}
+                  emptyText="Aucune place libre dans un rayon de 600 m."
+                />
+                <VelibLegend />
+              </View>
+            </>
+          ) : null}
 
           {activeMode === "publicTransit" ? (
             journeys && journeys.length > 0 ? (
