@@ -537,6 +537,7 @@ export function RouteScreen() {
                       journey={j}
                       now={new Date()}
                       selected={i === journeyIdx}
+                      fastest={i === 0 && journeys.length > 1}
                       onPress={() => setJourneyIdx(i)}
                     />
                   ))}

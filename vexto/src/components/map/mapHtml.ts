@@ -54,6 +54,14 @@ export function buildMapHtml(token: string): string {
     }
     .user.has-heading .cone { display: block; }
     .mapboxgl-ctrl-attrib { font-size: 10px; }
+    .stop-label {
+      font: 700 12px/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: ${colors.forest}; background: rgba(255,255,255,.92);
+      padding: 2px 6px; border-radius: 6px; white-space: nowrap; pointer-events: none;
+      box-shadow: 0 1px 3px rgba(16,43,25,.25); border-left: 3px solid var(--c, ${colors.forest});
+    }
+    .stop-label.minor { font-weight: 500; font-size: 10px; color: ${colors.muted}; display: none; }
+    body.zoomed .stop-label.minor { display: block; }
   </style>
 </head>
 <body>
@@ -148,15 +156,44 @@ export function buildMapHtml(token: string): string {
       if (map.getSource("segments")) map.removeSource("segments");
     }
 
+    var labelMarkers = [];
+    function updateZoomClass() {
+      document.body.classList.toggle("zoomed", map.getZoom() >= 13.5);
+    }
+    map.on("zoom", updateZoomClass);
+
     function setPoints(pts) {
       var fc = { type: "FeatureCollection", features: pts.map(function (p) {
-        return { type: "Feature", properties: { color: p.color || ${JSON.stringify(colors.forest)} },
+        return { type: "Feature",
+          properties: { color: p.color || ${JSON.stringify(colors.forest)}, major: p.major !== false },
           geometry: { type: "Point", coordinates: p.coordinates } };
       }) };
-      if (map.getSource("points")) { map.getSource("points").setData(fc); return; }
-      map.addSource("points", { type: "geojson", data: fc });
-      map.addLayer({ id: "points", type: "circle", source: "points",
-        paint: { "circle-radius": 5, "circle-color": "#ffffff", "circle-stroke-width": 3, "circle-stroke-color": ["get", "color"] } });
+      if (map.getSource("points")) map.getSource("points").setData(fc);
+      else {
+        map.addSource("points", { type: "geojson", data: fc });
+        map.addLayer({ id: "points", type: "circle", source: "points",
+          paint: {
+            "circle-radius": ["case", ["get", "major"], 6, 3.5],
+            "circle-color": "#ffffff",
+            "circle-stroke-width": ["case", ["get", "major"], 3, 2],
+            "circle-stroke-color": ["get", "color"] } });
+      }
+      // Station names as HTML labels (no map glyphs needed).
+      labelMarkers.forEach(function (m) { m.remove(); });
+      labelMarkers = [];
+      var seen = {};
+      pts.forEach(function (p) {
+        if (!p.label) return;
+        var key = p.label + "|" + (p.major !== false);
+        if (seen[key]) return;
+        seen[key] = true;
+        var d = el("stop-label" + (p.major === false ? " minor" : ""));
+        d.textContent = p.label;
+        d.style.setProperty("--c", p.color || ${JSON.stringify(colors.forest)});
+        labelMarkers.push(new mapboxgl.Marker({ element: d, anchor: "left", offset: [10, 0] })
+          .setLngLat(p.coordinates).addTo(map));
+      });
+      updateZoomClass();
     }
 
     function fitTo(points) {

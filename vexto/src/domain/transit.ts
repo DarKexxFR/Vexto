@@ -64,7 +64,7 @@ interface NvSection {
   to?: NvPlace;
   geojson?: { type?: string; coordinates?: number[][] };
   display_informations?: NvDisplayInformations;
-  stop_date_times?: unknown[];
+  stop_date_times?: { stop_point?: NvPlace["stop_point"] }[];
 }
 
 interface NvJourney {
@@ -151,6 +151,11 @@ export interface LineBadge {
 
 export type LegType = "walk" | "transit" | "transfer" | "wait";
 
+export interface TransitStop {
+  name: string;
+  coords: LngLat | null;
+}
+
 export interface TransitLeg {
   type: LegType;
   from: string;
@@ -164,6 +169,8 @@ export interface TransitLeg {
   direction: string | null;
   /** Number of stops ridden (transit legs). */
   stops: number;
+  /** Every station / stop served, boarding and exit included (transit legs). */
+  stopList: TransitStop[];
   geometry: LngLat[];
   realtime: boolean;
   /** Positive = late, in minutes (realtime only). */
@@ -364,6 +371,7 @@ export function parseJourneys(json: NvJourneysResponse): TransitJourney[] {
         line: null,
         direction: null,
         stops: 0,
+        stopList: [] as TransitStop[],
         geometry,
         realtime: false,
         delayMin: 0,
@@ -377,6 +385,12 @@ export function parseJourneys(json: NvJourneysResponse): TransitJourney[] {
           line: badgeFromDisplay(s.display_informations),
           direction: s.display_informations?.direction ? cleanName(s.display_informations.direction) : null,
           stops: Math.max(1, (s.stop_date_times?.length ?? 2) - 1),
+          stopList: (s.stop_date_times ?? [])
+            .map((sdt) => ({
+              name: cleanName(sdt?.stop_point?.name ?? ""),
+              coords: coordOf(sdt?.stop_point?.coord),
+            }))
+            .filter((st) => st.name.length > 0),
           realtime,
           delayMin: realtime && baseDep && dep ? Math.round((dep.getTime() - baseDep.getTime()) / 60_000) : 0,
         });
@@ -404,8 +418,17 @@ export function parseJourneys(json: NvJourneysResponse): TransitJourney[] {
       status: j.status ? j.status : null,
     });
   });
-  // Soonest departure first, then fastest.
-  return journeys.sort((a, b) => a.departure.getTime() - b.departure.getTime() || a.durationMin - b.durationMin);
+  // Walking-only answers belong to the "Marche" option, not to transit. The
+  // journey that gets you there first comes first (then the shortest one), so
+  // the default selection is the fastest way by public transport.
+  return journeys
+    .filter((j) => j.legs.some((l) => l.type === "transit"))
+    .sort(
+      (a, b) =>
+        a.arrival.getTime() - b.arrival.getTime() ||
+        a.durationMin - b.durationMin ||
+        a.departure.getTime() - b.departure.getTime(),
+    );
 }
 
 function compareCodes(a: string, b: string): number {

@@ -13,6 +13,11 @@ export interface MapSegment {
 export interface MapPoint {
   coordinates: [number, number];
   color: string;
+  /** Station / stop name shown next to the dot. */
+  label?: string;
+  /** Boarding, exit or transfer stop: big dot, label always visible.
+   * Other stops are small and labelled only when zoomed in. */
+  major?: boolean;
 }
 
 export interface MapViewProps {

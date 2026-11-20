@@ -2,6 +2,7 @@
  * Visual building blocks for public transport: official line badges, next
  * departures rows and journey cards.
  */
+import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
 
 import { Icon, McIcon, type McIconName } from "@/components/Icon";
@@ -124,11 +125,13 @@ interface JourneyCardProps {
   journey: TransitJourney;
   now: Date;
   selected: boolean;
+  /** Arrives first among the proposed journeys. */
+  fastest?: boolean;
   onPress: () => void;
 }
 
 /** One transit itinerary: leave at…, lines used, arrive at… */
-export function JourneyCard({ journey, now, selected, onPress }: JourneyCardProps) {
+export function JourneyCard({ journey, now, selected, fastest = false, onPress }: JourneyCardProps) {
   const firstTransit = journey.legs.find((l) => l.type === "transit");
   const leaveIn = minutesUntil(journey.departure, now);
   const boardIn = firstTransit?.departure ? minutesUntil(firstTransit.departure, now) : null;
@@ -149,7 +152,14 @@ export function JourneyCard({ journey, now, selected, onPress }: JourneyCardProp
           <Icon name="arrow-forward" size={13} color={colors.muted} />
           <Text className="text-lg font-extrabold text-forest">{formatTime(journey.arrival)}</Text>
         </View>
-        <Text className="text-sm font-bold text-forest">{formatDuration(journey.durationMin)}</Text>
+        <View className="items-end">
+          <Text className="text-sm font-bold text-forest">{formatDuration(journey.durationMin)}</Text>
+          {fastest ? (
+            <View className="mt-0.5 rounded-md bg-leaf-soft px-1.5 py-0.5">
+              <Text className="text-[10px] font-bold text-leaf">⚡ Le plus rapide</Text>
+            </View>
+          ) : null}
+        </View>
       </View>
 
       <View className="mt-2 flex-row flex-wrap items-center gap-1.5">
@@ -173,6 +183,24 @@ export function JourneyCard({ journey, now, selected, onPress }: JourneyCardProp
           }
           return null;
         })}
+      </View>
+
+      <View className="mt-2 gap-1">
+        {journey.legs.map((leg, i) =>
+          leg.type === "transit" && leg.line ? (
+            <View key={i} className="flex-row items-center gap-2">
+              <View style={{ width: 4, alignSelf: "stretch", borderRadius: 2, backgroundColor: leg.line.color }} />
+              <Text className="flex-1 text-xs text-forest" numberOfLines={2}>
+                <Text className="font-bold">{leg.from}</Text>
+                {" → "}
+                <Text className="font-bold">{leg.to}</Text>
+                <Text className="text-muted">
+                  {` · ${leg.line.kind === "bus" ? "bus" : leg.line.modeLabel} ${leg.line.code} · ${leg.stops} arrêt${leg.stops > 1 ? "s" : ""}`}
+                </Text>
+              </Text>
+            </View>
+          ) : null,
+        )}
       </View>
 
       <Text className="mt-2 text-xs text-muted" numberOfLines={2}>
@@ -243,6 +271,7 @@ export function JourneySteps({ journey }: JourneyStepsProps) {
                   {leg.stops} arrêt{leg.stops > 1 ? "s" : ""} · {formatDuration(leg.durationMin)}
                   {leg.arrival ? ` · arrivée ${formatTime(leg.arrival)}` : ""}
                 </Text>
+                <StopList names={leg.stopList.map((st) => st.name)} color={leg.line.color} />
               </View>
             </View>
           );
@@ -265,6 +294,54 @@ export function JourneySteps({ journey }: JourneyStepsProps) {
         );
       })}
       <Text className="text-xs font-semibold text-forest">Arrivée prévue à {formatTime(journey.arrival)}</Text>
+    </View>
+  );
+}
+
+/** "Voir les 6 arrêts" → every station / stop of the ride, boarding and exit in bold. */
+function StopList({ names, color }: { names: string[]; color: string }) {
+  const [open, setOpen] = useState(false);
+  if (names.length < 2) return null;
+  return (
+    <View className="mt-1">
+      <Pressable
+        onPress={() => {
+          haptic.tap();
+          setOpen((v) => !v);
+        }}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        hitSlop={6}
+        className="flex-row items-center gap-1 self-start"
+      >
+        <Text className="text-xs font-bold text-sky">
+          {open ? "Masquer les arrêts" : `Voir les ${names.length} arrêts`}
+        </Text>
+        <Icon name={open ? "chevron-up" : "chevron-down"} size={12} color={colors.sky} />
+      </Pressable>
+      {open ? (
+        <View className="mt-1.5">
+          {names.map((name, i) => {
+            const edge = i === 0 || i === names.length - 1;
+            return (
+              <View key={`${name}-${i}`} className="flex-row items-center gap-2 py-0.5">
+                <View
+                  style={{
+                    width: edge ? 10 : 6,
+                    height: edge ? 10 : 6,
+                    borderRadius: 5,
+                    marginHorizontal: edge ? 0 : 2,
+                    backgroundColor: edge ? color : colors.card,
+                    borderWidth: 2,
+                    borderColor: color,
+                  }}
+                />
+                <Text className={`text-xs ${edge ? "font-bold text-forest" : "text-muted"}`}>{name}</Text>
+              </View>
+            );
+          })}
+        </View>
+      ) : null}
     </View>
   );
 }

@@ -65,7 +65,10 @@ const JOURNEYS: NvJourneysResponse = {
             direction: "Boissy-Saint-Léger (Boissy-Saint-Léger)",
             links: [{ type: "line", id: "line:IDFM:C01742" }],
           },
-          stop_date_times: [{}, {}],
+          stop_date_times: [
+            { stop_point: { name: "Châtelet les Halles (Paris)", coord: { lon: "2.3470", lat: "48.8619" } } },
+            { stop_point: { name: "Gare de Lyon (Paris)" } },
+          ],
           geojson: { type: "LineString", coordinates: [[2.3470, 48.8619], [2.3735, 48.8448]] },
         },
         {
@@ -81,11 +84,40 @@ const JOURNEYS: NvJourneysResponse = {
       ],
     },
     {
-      duration: 1800,
+      // Walking only (Navitia "non_pt" answer): must not appear as transit.
+      duration: 7740,
+      nb_transfers: 0,
+      departure_date_time: "20261120T083000",
+      arrival_date_time: "20261120T103900",
+      sections: [
+        {
+          type: "street_network",
+          mode: "walking",
+          duration: 7740,
+          departure_date_time: "20261120T083000",
+          arrival_date_time: "20261120T103900",
+          from: { name: "Départ", embedded_type: "address" },
+          to: { name: "Arrivée", embedded_type: "address" },
+        },
+      ],
+    },
+    {
+      // Leaves earlier but arrives later than the RER A journey.
+      duration: 2700,
       nb_transfers: 1,
       departure_date_time: "20261120T083500",
-      arrival_date_time: "20261120T090500",
-      sections: [],
+      arrival_date_time: "20261120T092000",
+      sections: [
+        {
+          type: "public_transport",
+          duration: 2400,
+          departure_date_time: "20261120T083800",
+          arrival_date_time: "20261120T091800",
+          from: { embedded_type: "stop_point", stop_point: { name: "Bastille (Paris)" } },
+          to: { embedded_type: "stop_point", stop_point: { name: "Nation (Paris)" } },
+          display_informations: { commercial_mode: "Bus", code: "87", color: "00814F", text_color: "FFFFFF" },
+        },
+      ],
     },
   ],
 };
@@ -104,9 +136,14 @@ describe("dates", () => {
 describe("parseJourneys", () => {
   const journeys = parseJourneys(JOURNEYS);
 
-  it("sorts by departure time and keeps both journeys", () => {
+  it("drops walking-only journeys", () => {
     expect(journeys).toHaveLength(2);
-    expect(journeys[0]?.departure.getMinutes()).toBe(35);
+    expect(journeys.every((j) => transitLegs(j).length > 0)).toBe(true);
+  });
+
+  it("puts the journey that arrives first on top", () => {
+    expect(journeys.map((j) => j.arrival.getMinutes())).toEqual([5, 20]);
+    expect(journeys[0]?.departure.getMinutes()).toBe(40);
   });
 
   it("builds walk + RER legs with official colors and realtime delay", () => {
@@ -122,6 +159,10 @@ describe("parseJourneys", () => {
     expect(rer.line?.id).toBe("line:IDFM:C01742");
     expect(rer.direction).toBe("Boissy-Saint-Léger");
     expect(rer.from).toBe("Châtelet les Halles");
+    expect(rer.stopList).toEqual([
+      { name: "Châtelet les Halles", coords: [2.347, 48.8619] },
+      { name: "Gare de Lyon", coords: null },
+    ]);
     expect(rer.realtime).toBe(true);
     expect(rer.delayMin).toBe(2);
     expect(j.distanceKm).toBeGreaterThan(2.5);
