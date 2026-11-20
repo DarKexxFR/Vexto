@@ -124,11 +124,13 @@ interface JourneyCardProps {
   journey: TransitJourney;
   now: Date;
   selected: boolean;
+  /** Arrives first among the proposed journeys. */
+  fastest?: boolean;
   onPress: () => void;
 }
 
 /** One transit itinerary: leave at…, lines used, arrive at… */
-export function JourneyCard({ journey, now, selected, onPress }: JourneyCardProps) {
+export function JourneyCard({ journey, now, selected, fastest = false, onPress }: JourneyCardProps) {
   const firstTransit = journey.legs.find((l) => l.type === "transit");
   const leaveIn = minutesUntil(journey.departure, now);
   const boardIn = firstTransit?.departure ? minutesUntil(firstTransit.departure, now) : null;
@@ -149,7 +151,14 @@ export function JourneyCard({ journey, now, selected, onPress }: JourneyCardProp
           <Icon name="arrow-forward" size={13} color={colors.muted} />
           <Text className="text-lg font-extrabold text-forest">{formatTime(journey.arrival)}</Text>
         </View>
-        <Text className="text-sm font-bold text-forest">{formatDuration(journey.durationMin)}</Text>
+        <View className="items-end">
+          <Text className="text-sm font-bold text-forest">{formatDuration(journey.durationMin)}</Text>
+          {fastest ? (
+            <View className="mt-0.5 rounded-md bg-leaf-soft px-1.5 py-0.5">
+              <Text className="text-[10px] font-bold text-leaf">⚡ Le plus rapide</Text>
+            </View>
+          ) : null}
+        </View>
       </View>
 
       <View className="mt-2 flex-row flex-wrap items-center gap-1.5">

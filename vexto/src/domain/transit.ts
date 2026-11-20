@@ -404,8 +404,17 @@ export function parseJourneys(json: NvJourneysResponse): TransitJourney[] {
       status: j.status ? j.status : null,
     });
   });
-  // Soonest departure first, then fastest.
-  return journeys.sort((a, b) => a.departure.getTime() - b.departure.getTime() || a.durationMin - b.durationMin);
+  // Walking-only answers belong to the "Marche" option, not to transit. The
+  // journey that gets you there first comes first (then the shortest one), so
+  // the default selection is the fastest way by public transport.
+  return journeys
+    .filter((j) => j.legs.some((l) => l.type === "transit"))
+    .sort(
+      (a, b) =>
+        a.arrival.getTime() - b.arrival.getTime() ||
+        a.durationMin - b.durationMin ||
+        a.departure.getTime() - b.departure.getTime(),
+    );
 }
 
 function compareCodes(a: string, b: string): number {
