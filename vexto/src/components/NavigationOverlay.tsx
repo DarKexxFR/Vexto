@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Modal, Pressable, Text, View } from "react-native";
+import { Modal, Platform, Pressable, Text, View } from "react-native";
 import { activateKeepAwakeAsync, deactivateKeepAwake } from "expo-keep-awake";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -28,6 +28,7 @@ import { shortPlaceLabel, type Place } from "@/domain/places";
 import { profileForMode, transitDurationMin, type RoutedPath } from "@/domain/routing";
 import { formatWait, legInstruction, type TransitJourney, type TransitLeg } from "@/domain/transit";
 import { useTripTracker } from "@/hooks/useTripTracker";
+import { webGeoMessage } from "@/lib/webGeolocation";
 import { confirmAsync } from "@/lib/dialogs";
 import { haptic } from "@/lib/haptics";
 import { getRoute } from "@/lib/mapbox";
@@ -290,7 +291,7 @@ export function NavigationOverlay({
     banner = {
       icon: <Icon name="alert-circle-outline" size={30} color={colors.white} />,
       title: "Localisation refusée",
-      subtitle: "Activez-la dans les réglages pour suivre votre trajet.",
+      subtitle: Platform.OS === "web" ? webGeoMessage("denied") : "Activez-la dans les réglages pour suivre votre trajet.",
       tone: colors.danger,
     };
   } else if (arrived) {

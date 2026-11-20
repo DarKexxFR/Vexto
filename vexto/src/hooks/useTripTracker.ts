@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Platform } from "react-native";
 import * as Location from "expo-location";
 
 import { metersBetween } from "@/domain/navigation";
+import { webWatchPosition } from "@/lib/webGeolocation";
 
 export type TrackerStatus = "idle" | "starting" | "tracking" | "paused" | "denied" | "error";
 
@@ -67,7 +69,7 @@ export function useTripTracker(): UseTripTracker {
   const pausedTotalMs = useRef(0);
   const startedAtMs = useRef<number | null>(null);
 
-  const onLocation = useCallback((loc: Location.LocationObject) => {
+  const onLocation = useCallback((loc: Pick<Location.LocationObject, "timestamp"> & { coords: Pick<Location.LocationObjectCoords, "latitude" | "longitude" | "accuracy" | "speed" | "heading"> }) => {
     const coords: [number, number] = [loc.coords.longitude, loc.coords.latitude];
     const accuracy = loc.coords.accuracy ?? null;
     setPosition(coords);
@@ -101,10 +103,15 @@ export function useTripTracker(): UseTripTracker {
     sub.current = null;
     setStatus("starting");
     try {
-      const { status: perm } = await Location.requestForegroundPermissionsAsync();
-      if (perm !== "granted") {
-        setStatus("denied");
-        return false;
+      const web = Platform.OS === "web";
+      // Web: the browser asks on the first watch (expo's permission shim is
+      // unreliable on Safari).
+      if (!web) {
+        const permission = await Location.requestForegroundPermissionsAsync();
+        if (permission.status !== "granted") {
+          setStatus("denied");
+          return false;
+        }
       }
       lastPoint.current = null;
       distanceM.current = 0;
@@ -117,10 +124,21 @@ export function useTripTracker(): UseTripTracker {
       setTraveledKm(0);
       setSpeedKmh(null);
       setHeadingDeg(null);
-      sub.current = await Location.watchPositionAsync(
-        { accuracy: Location.Accuracy.BestForNavigation, timeInterval: 2000, distanceInterval: 4 },
-        onLocation,
-      );
+      if (web) {
+        // Direct browser GPS (Safari-safe); the prompt appears on first watch.
+        const stopWatch = webWatchPosition(onLocation, (e) => {
+          if (e.code === "denied" || e.code === "unsupported" || e.code === "insecure") {
+            stopWatch();
+            setStatus(e.code === "denied" ? "denied" : "error");
+          }
+        });
+        sub.current = { remove: stopWatch } as Location.LocationSubscription;
+      } else {
+        sub.current = await Location.watchPositionAsync(
+          { accuracy: Location.Accuracy.BestForNavigation, timeInterval: 2000, distanceInterval: 4 },
+          onLocation,
+        );
+      }
       setStatus("tracking");
       return true;
     } catch {
