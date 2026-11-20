@@ -14,6 +14,7 @@ amis, échanger ses crédits contre des récompenses… et faire pousser sa for�
 | 🗣️ **Navigation guidée** | Virage par virage avec **voix en français**, recalcul automatique si vous déviez, détection d'arrivée, pause, écran maintenu allumé ; en transports, guidage étape par étape (marche → montez dans le RER A direction… → descendez à…). |
 | 🏆 **Gamification** | Points calculés et vérifiés côté serveur (anti-triche), niveaux, série de jours 🔥, 16 succès, classement général / amis / semaine, code ami, récompenses avec bons de réduction. |
 | 🎁 **Surprise du chef : Ma Forêt Vexto** | Une forêt vivante qui pousse avec le CO₂ évité (1 arbre = 25 kg, 5 stades de croissance), saisons et ciel selon l'heure, faune qui revient, équivalences concrètes (km en voiture, repas, jeans…), partage. Plus un **coach météo** qui conseille le meilleur mode du moment. |
+| 🚲 **Vélib' en temps réel** | Stations proches dans Horaires ; en mode vélo, où prendre un vélo au départ (mécaniques / électriques) et où le reposer à l'arrivée (places libres), aussi sur la carte. Données ouvertes Paris / Vélib' Métropole, sans clé. |
 | 🌐 **Site web / PWA** | La même app dans le navigateur, installable sur l'écran d'accueil, déployée automatiquement sur GitHub Pages. |
 
 ## Stack
@@ -47,27 +48,35 @@ Appliquez les migrations `supabase/migrations/0001` → `0007` (éditeur SQL de
 Supabase, ou `npx supabase db push`). La **0006** corrige des failles importantes
 (voir *Sécurité*) ; la **0007** prépare les tracés officiels IDFM.
 
-### 2. Horaires temps réel (PRIM Île-de-France Mobilités)
+### 2. Horaires temps réel (Île-de-France et SNCF)
 
-1. Créez un compte gratuit sur [prim.iledefrance-mobilites.fr](https://prim.iledefrance-mobilites.fr)
-   puis générez une clé dans **Mes clés d'API** (API « Calculateur IDFM / Navitia »).
-2. Déployez la fonction et enregistrez la clé comme **secret** (elle ne quitte
-   jamais le serveur, même sur le site web) :
+La fonction `supabase/functions/transit` choisit la source selon le lieu :
 
-   ```bash
-   npx supabase login
-   npx supabase link --project-ref <votre-project-ref>
-   npx supabase secrets set PRIM_API_KEY=<votre-clé-prim>
-   npx supabase functions deploy transit
-   ```
+| Zone | Source | Secret Supabase | Clé gratuite |
+| --- | --- | --- | --- |
+| Île-de-France (RATP, RER, Transilien, bus…) | IDFM PRIM | `PRIM_API_KEY` | [prim.iledefrance-mobilites.fr](https://prim.iledefrance-mobilites.fr) › s'abonner à « Calculateur IDFM – Accès générique (v2) » › Mes clés d'API |
+| Reste de la France, trajets entre villes (TER, TGV, Intercités…) | API SNCF | `SNCF_API_KEY` | [numerique.sncf.com › API](https://numerique.sncf.com/startup/api/) |
 
-   La fonction (`supabase/functions/transit`) n'accepte que les utilisateurs
-   connectés et met les réponses en cache. Les clés PRIM récentes ont un quota
-   modeste (de l'ordre de 1 000 requêtes/jour) : pour beaucoup d'utilisateurs,
-   demandez une augmentation à IDFM. Variable optionnelle : `PRIM_NAVITIA_BASE`.
+Un trajet dont le départ et l'arrivée sont en Île-de-France utilise PRIM ;
+sinon il passe par l'API SNCF. Seules les sources dont la clé est renseignée
+sont actives.
+
+1. Ajoutez les clés dans Supabase › **Edge Functions › Secrets** (elles ne
+   quittent jamais le serveur).
+2. Déployez la fonction : `npx supabase functions deploy transit`, ou dans le
+   tableau de bord **Edge Functions › Deploy a new function › Via Editor**
+   (nom `transit`, collez `supabase/functions/transit/index.ts`).
+
+La fonction n'accepte que les utilisateurs connectés et met les réponses en
+cache pour ménager les quotas. Variables optionnelles : `PRIM_NAVITIA_BASE`,
+`SNCF_NAVITIA_BASE`.
 
 Tant que la fonction n'est pas déployée, l'app l'indique et estime la durée en
 transports.
+
+> Anti-triche : les tracés officiels importés (étape 3) ne couvrent que
+> l'Île-de-France ; un trajet en transports ailleurs est refusé tant que ses
+> lignes ne sont pas importées.
 
 ### 3. Tracés officiels des lignes (anti-triche transports)
 

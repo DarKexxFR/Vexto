@@ -10,7 +10,7 @@
 export const EMISSION_FACTORS = {
   /** Voiture thermique individuelle (autosolisme). */
   carThermal: 0.218,
-  /** Transports collectifs (mix RATP/TER/Divia). */
+  /** Transports collectifs (mix RATP/TER/bus urbains). */
   publicTransit: 0.01,
   /** Vélo / vélo électrique (cycle de vie négligeable côté usage). */
   bike: 0.0,

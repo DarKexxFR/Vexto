@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { useIsFocused } from "@react-navigation/native";
 
@@ -17,14 +17,22 @@ import {
   fetchDepartures,
   fetchNearbyStops,
   isTransitSetupError,
+  regionAt,
   searchTransit,
   transitErrorMessage,
+  type TransitRegion,
 } from "@/lib/transit";
 import { useAppNavigation } from "@/navigation/types";
+import { VelibCard, VelibLegend } from "@/components/bikeshare/VelibViews";
+import { inVelibArea, type BikeStation } from "@/domain/bikeshare";
+import { fetchVelibStations } from "@/lib/velib";
 import { usePrefsStore } from "@/store/usePrefsStore";
 import { colors } from "@/theme/colors";
 
-const QUICK_SEARCHES = ["RER A", "RER B", "RER C", "RER D", "Métro 1", "Métro 4", "Métro 14", "T3a", "Bus 38"];
+const QUICK_SEARCHES: Record<TransitRegion, string[]> = {
+  idfm: ["RER A", "RER B", "RER C", "RER D", "Métro 1", "Métro 4", "Métro 14", "T3a", "Bus 38"],
+  sncf: ["TER", "TGV", "Intercités", "Gare"],
+};
 
 type NearbyStatus = "idle" | "loading" | "ready" | "needs-location" | "error";
 
@@ -64,6 +72,29 @@ export function TransitScreen() {
     setNow(new Date());
   }, []);
 
+  // Last known position: Île-de-France network or SNCF for search.
+  const lastPos = useRef<[number, number] | null>(null);
+  const [region, setRegion] = useState<TransitRegion>("idfm");
+  const [velib, setVelib] = useState<BikeStation[] | null>(null);
+  const [velibLoading, setVelibLoading] = useState(false);
+  const [velibError, setVelibError] = useState<string | null>(null);
+  const [inVelib, setInVelib] = useState(false);
+
+  const loadVelib = useCallback(async (pos: [number, number]) => {
+    const inside = inVelibArea(pos);
+    setInVelib(inside);
+    if (!inside) return;
+    setVelibLoading(true);
+    try {
+      setVelib(await fetchVelibStations(pos, { radiusM: 500, limit: 4 }));
+      setVelibError(null);
+    } catch {
+      setVelibError("Disponibilités Vélib' indisponibles pour le moment.");
+    } finally {
+      setVelibLoading(false);
+    }
+  }, []);
+
   const loadNearby = useCallback(async (ask: boolean): Promise<StopAreaSummary[]> => {
     setNearbyStatus("loading");
     let pos = await getKnownPosition();
@@ -72,6 +103,9 @@ export function TransitScreen() {
       setNearbyStatus("needs-location");
       return [];
     }
+    lastPos.current = pos;
+    setRegion(regionAt(pos));
+    void loadVelib(pos);
     try {
       const stops = await fetchNearbyStops(pos);
       setNearby(stops);
@@ -83,7 +117,7 @@ export function TransitScreen() {
       if (isTransitSetupError(e)) setSetupError(transitErrorMessage(e));
       return [];
     }
-  }, []);
+  }, [loadVelib]);
 
   const refresh = useCallback(
     async (ask = false) => {
@@ -115,7 +149,7 @@ export function TransitScreen() {
     }
     setSearching(true);
     const timer = setTimeout(() => {
-      searchTransit(q)
+      searchTransit(q, lastPos.current)
         .then((r) => {
           setResults(r);
           setSearchError(null);
@@ -210,7 +244,7 @@ export function TransitScreen() {
           {setupError ? <Banner tone="warning" title="Horaires temps réel à configurer" message={setupError} /> : null}
 
           <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-4" contentContainerClassName="gap-2">
-            {QUICK_SEARCHES.map((q) => (
+            {QUICK_SEARCHES[region].map((q) => (
               <Pressable
                 key={q}
                 onPress={() => setQuery(q)}
@@ -300,6 +334,20 @@ export function TransitScreen() {
               ) : null}
             </>
           )}
+
+          {inVelib ? (
+            <>
+              <SectionHeader title="Vélib' à proximité" />
+              <VelibCard
+                title="Vélos et places disponibles"
+                stations={velib}
+                loading={velibLoading}
+                error={velibError}
+                emptyText="Aucune station Vélib' dans un rayon de 500 m."
+              />
+              <VelibLegend />
+            </>
+          ) : null}
 
           <Text className="mt-4 text-center text-[11px] text-faint">
             Données Île-de-France Mobilités (PRIM) · 📡 = horaire en temps réel
