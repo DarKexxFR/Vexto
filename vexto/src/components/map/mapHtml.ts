@@ -89,6 +89,28 @@ export function buildMapHtml(token: string): string {
       pitchWithRotate: true,
     });
     map.addControl(new mapboxgl.AttributionControl({ compact: true }), "bottom-left");
+
+    // Morocco shown whole, Southern Provinces included: hide the boundary
+    // drawn between Morocco and Western Sahara (features tagged with both
+    // "MA" and "EH") and the separate "Western Sahara" country label. Outer
+    // borders with Mauritania and Algeria stay.
+    function unifyMorocco() {
+      var iso = ["coalesce", ["to-string", ["get", "iso_3166_1"]], ""];
+      var innerLine = ["all", ["in", "EH", iso], ["in", "MA", iso]];
+      (map.getStyle().layers || []).forEach(function (layer) {
+        var src = layer["source-layer"];
+        var extra = null;
+        if (src === "admin") extra = ["!", innerLine];
+        else if (src === "place_label" && /country/.test(layer.id)) extra = ["!=", iso, "EH"];
+        if (!extra) return;
+        try {
+          map.setFilter(layer.id, layer.filter ? ["all", layer.filter, extra] : extra);
+        } catch (err) {
+          /* legacy filter syntax: leave this layer untouched */
+        }
+      });
+    }
+    map.on("style.load", unifyMorocco);
     map.on("error", function (e) {
       var status = e && e.error && e.error.status;
       var message = status === 401 ? "Token Mapbox invalide" : ((e && e.error && e.error.message) || "Erreur de carte");
