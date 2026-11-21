@@ -7,6 +7,7 @@
  * places_nearby, pt_objects, lines).
  */
 import { cumulativeDistances, metersBetween, projectOnLine, type LngLat } from "@/domain/navigation";
+import { alertsFor, parseDisruptions, type NvDisruption, type TrafficAlert } from "@/domain/traffic";
 
 // --- Raw Navitia shapes (only the fields we use) -----------------------------------
 
@@ -81,10 +82,12 @@ interface NvJourney {
 
 export interface NvJourneysResponse {
   journeys?: NvJourney[];
+  disruptions?: NvDisruption[];
   error?: { id?: string; message?: string };
 }
 
 export interface NvDeparturesResponse {
+  disruptions?: NvDisruption[];
   departures?: Array<{
     display_informations?: NvDisplayInformations;
     stop_point?: NvNamed;
@@ -175,6 +178,8 @@ export interface TransitLeg {
   realtime: boolean;
   /** Positive = late, in minutes (realtime only). */
   delayMin: number;
+  /** Traffic alerts on this leg's line. */
+  alerts: TrafficAlert[];
 }
 
 export interface TransitJourney {
@@ -203,6 +208,8 @@ export interface DepartureGroup {
   line: LineBadge;
   direction: string;
   times: DepartureTime[];
+  /** Traffic alerts on this line right now. */
+  alerts: TrafficAlert[];
 }
 
 export interface StopAreaSummary {
@@ -346,8 +353,9 @@ function minutesBetween(a: Date | null, b: Date | null): number {
 
 // --- Parsers ---------------------------------------------------------------------------------
 
-export function parseJourneys(json: NvJourneysResponse): TransitJourney[] {
+export function parseJourneys(json: NvJourneysResponse, now: Date = new Date()): TransitJourney[] {
   const journeys: TransitJourney[] = [];
+  const alerts = parseDisruptions(json.disruptions, now);
   (json.journeys ?? []).forEach((j, index) => {
     const departure = parseNavitiaDate(j.departure_date_time);
     const arrival = parseNavitiaDate(j.arrival_date_time);
@@ -375,6 +383,7 @@ export function parseJourneys(json: NvJourneysResponse): TransitJourney[] {
         geometry,
         realtime: false,
         delayMin: 0,
+        alerts: [] as TrafficAlert[],
       };
       if (type === "public_transport" || type === "on_demand_transport") {
         const baseDep = parseNavitiaDate(s.base_departure_date_time);
@@ -393,6 +402,11 @@ export function parseJourneys(json: NvJourneysResponse): TransitJourney[] {
             .filter((st) => st.name.length > 0),
           realtime,
           delayMin: realtime && baseDep && dep ? Math.round((dep.getTime() - baseDep.getTime()) / 60_000) : 0,
+          alerts: alertsFor(
+            alerts,
+            lineIdFromLinks(s.display_informations?.links),
+            (s.display_informations?.links ?? []).filter((l) => l.type === "disruption" && l.id).map((l) => l.id as string),
+          ),
         });
       } else if (type === "street_network" || type === "crow_fly") {
         if (durationMin <= 0 && geometry.length < 2) continue;
@@ -437,6 +451,7 @@ function compareCodes(a: string, b: string): number {
 
 export function parseDepartures(json: NvDeparturesResponse, now: Date = new Date(), perGroup = 4): DepartureGroup[] {
   const groups = new Map<string, DepartureGroup>();
+  const alerts = parseDisruptions(json.disruptions, now);
   for (const d of json.departures ?? []) {
     const at = parseNavitiaDate(d.stop_date_time?.departure_date_time);
     if (!at || at.getTime() < now.getTime() - 60_000) continue;
@@ -446,7 +461,7 @@ export function parseDepartures(json: NvDeparturesResponse, now: Date = new Date
     const key = `${line.id ?? `${line.kind}-${line.code}`}|${direction}`;
     const base = parseNavitiaDate(d.stop_date_time?.base_departure_date_time);
     const realtime = d.stop_date_time?.data_freshness === "realtime";
-    const group = groups.get(key) ?? { key, line, direction, times: [] };
+    const group = groups.get(key) ?? { key, line, direction, times: [], alerts: alertsFor(alerts, lineId) };
     group.times.push({
       at,
       realtime,

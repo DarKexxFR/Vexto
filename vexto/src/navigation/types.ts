@@ -18,6 +18,7 @@ export type RootStackParamList = {
   Tabs: NavigatorScreenParams<TabParamList> | undefined;
   Forest: undefined;
   History: undefined;
+  Recap: undefined;
   Profile: undefined;
   Stop: { id: string; name: string; coords?: [number, number] | null; lineId?: string | null };
   Line: { id: string; name?: string };

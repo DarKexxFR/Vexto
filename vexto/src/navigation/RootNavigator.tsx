@@ -13,6 +13,7 @@ import { RewardsScreen } from "@/screens/RewardsScreen";
 import { RouteScreen } from "@/screens/RouteScreen";
 import { StopScreen } from "@/screens/StopScreen";
 import { TransitScreen } from "@/screens/TransitScreen";
+import { RecapScreen } from "@/screens/RecapScreen";
 import { TripHistoryScreen } from "@/screens/TripHistoryScreen";
 import { colors } from "@/theme/colors";
 
@@ -55,6 +56,7 @@ export function RootNavigator() {
         <Stack.Screen name="Tabs" component={Tabs} />
         <Stack.Screen name="Forest" component={ForestScreen} options={{ animation: "slide_from_bottom" }} />
         <Stack.Screen name="History" component={TripHistoryScreen} />
+        <Stack.Screen name="Recap" component={RecapScreen} />
         <Stack.Screen name="Profile" component={ProfileScreen} />
         <Stack.Screen name="Stop" component={StopScreen} />
         <Stack.Screen name="Line" component={LineScreen} />

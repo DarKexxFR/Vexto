@@ -15,6 +15,7 @@ import {
   type TransitJourney,
   type TransitModeKind,
 } from "@/domain/transit";
+import type { AlertLevel, TrafficAlert } from "@/domain/traffic";
 import { haptic } from "@/lib/haptics";
 import { colors } from "@/theme/colors";
 
@@ -81,7 +82,18 @@ interface DepartureRowProps {
 export function DepartureRow({ group, now, onPress }: DepartureRowProps) {
   const content = (
     <View className="flex-row items-center gap-3 py-2.5">
-      <LineBadgeView line={group.line} />
+      <View>
+        <LineBadgeView line={group.line} />
+        {group.alerts.length > 0 ? (
+          <View
+            className="absolute -right-1.5 -top-1.5 h-4 w-4 items-center justify-center rounded-full border-2 border-card"
+            style={{ backgroundColor: ALERT_STYLE[group.alerts[0]!.level].fg }}
+            accessibilityLabel="Perturbation sur cette ligne"
+          >
+            <Text className="text-[8px] font-extrabold text-white">!</Text>
+          </View>
+        ) : null}
+      </View>
       <View className="flex-1">
         <Text className="text-sm font-semibold text-forest" numberOfLines={1}>
           {group.direction || "Direction inconnue"}
@@ -218,7 +230,20 @@ export function JourneyCard({ journey, now, selected, fastest = false, onPress }
           </Text>
         </View>
       ) : null}
-      {journey.status ? <Text className="mt-1 text-[11px] font-semibold text-danger">Perturbations sur ce trajet</Text> : null}
+      {(() => {
+        const alert = journey.legs.flatMap((l) => l.alerts)[0];
+        if (alert) {
+          return (
+            <View className="mt-1.5 flex-row items-start gap-1">
+              <Icon name="warning" size={12} color={ALERT_STYLE[alert.level].fg} />
+              <Text className="flex-1 text-[11px] font-semibold" style={{ color: ALERT_STYLE[alert.level].fg }} numberOfLines={2}>
+                {alert.title}
+              </Text>
+            </View>
+          );
+        }
+        return journey.status ? <Text className="mt-1 text-[11px] font-semibold text-danger">Perturbations sur ce trajet</Text> : null;
+      })()}
     </Pressable>
   );
 }
@@ -272,6 +297,11 @@ export function JourneySteps({ journey }: JourneyStepsProps) {
                   {leg.arrival ? ` · arrivée ${formatTime(leg.arrival)}` : ""}
                 </Text>
                 <StopList names={leg.stopList.map((st) => st.name)} color={leg.line.color} />
+                {leg.alerts.map((a) => (
+                  <View key={a.id} className="mt-2">
+                    <TrafficAlertView alert={a} compact />
+                  </View>
+                ))}
               </View>
             </View>
           );
@@ -343,5 +373,52 @@ function StopList({ names, color }: { names: string[]; color: string }) {
         </View>
       ) : null}
     </View>
+  );
+}
+
+export const ALERT_STYLE: Record<AlertLevel, { fg: string; bg: string; label: string; icon: "close-circle" | "warning" | "information-circle" }> = {
+  blocking: { fg: colors.danger, bg: colors.dangerSoft, label: "Trafic interrompu", icon: "close-circle" },
+  delays: { fg: colors.amber, bg: colors.amberSoft, label: "Trafic perturbé", icon: "warning" },
+  info: { fg: colors.sky, bg: colors.skySoft, label: "Information", icon: "information-circle" },
+};
+
+/** One traffic alert; tap to read the details. */
+export function TrafficAlertView({ alert, line, compact = false }: { alert: TrafficAlert; line?: LineBadge | null; compact?: boolean }) {
+  const [open, setOpen] = useState(false);
+  const st = ALERT_STYLE[alert.level];
+  return (
+    <Pressable
+      onPress={() => {
+        if (!alert.message) return;
+        haptic.tap();
+        setOpen((v) => !v);
+      }}
+      accessibilityRole={alert.message ? "button" : undefined}
+      accessibilityState={alert.message ? { expanded: open } : undefined}
+      className={`flex-row gap-2.5 rounded-xl ${compact ? "p-2.5" : "p-3"}`}
+      style={{ backgroundColor: st.bg }}
+    >
+      <Icon name={st.icon} size={compact ? 16 : 20} color={st.fg} />
+      <View className="min-w-0 flex-1">
+        <View className="flex-row flex-wrap items-center gap-1.5">
+          {line ? <LineBadgeView line={line} size="sm" /> : null}
+          <Text className="text-[11px] font-extrabold uppercase" style={{ color: st.fg }}>
+            {st.label}
+          </Text>
+          {alert.end ? (
+            <Text className="text-[11px] text-muted">jusqu'à {formatTime(alert.end)}</Text>
+          ) : null}
+        </View>
+        <Text className={`mt-0.5 ${compact ? "text-xs" : "text-sm"} font-semibold text-forest`} numberOfLines={open ? undefined : 3}>
+          {alert.title}
+        </Text>
+        {open && alert.message ? <Text className="mt-1 text-xs text-forest">{alert.message}</Text> : null}
+        {!open && alert.message ? (
+          <Text className="mt-0.5 text-[11px] font-bold" style={{ color: st.fg }}>
+            Détails
+          </Text>
+        ) : null}
+      </View>
+    </Pressable>
   );
 }

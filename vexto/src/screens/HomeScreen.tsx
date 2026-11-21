@@ -1,9 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { useIsFocused } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 
 import { Card } from "@/components/Card";
+import { ChallengesCard } from "@/components/ChallengesCard";
+import { CommuteCard } from "@/components/CommuteCard";
 import { ForestScene } from "@/components/forest/ForestScene";
 import { Icon, McIcon } from "@/components/Icon";
 import { ScoreRing } from "@/components/ScoreRing";
@@ -13,6 +15,7 @@ import { TripRow } from "@/components/TripRow";
 import { Avatar, Chip, EmptyState, ProgressBar, SectionHeader, StatTile } from "@/components/ui";
 import { WeatherCoachCard } from "@/components/WeatherCoachCard";
 import { WeeklyChart } from "@/components/WeeklyChart";
+import { daysLeftInWeek, evaluateChallenges } from "@/domain/challenges";
 import { shortPlaceLabel, type Place } from "@/domain/places";
 import { firstName, formatChange, formatCo2, formatInt, greeting, pluralize } from "@/domain/format";
 import type { DepartureGroup } from "@/domain/transit";
@@ -48,6 +51,11 @@ export function HomeScreen() {
   const [rank, setRank] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [forestWidth, setForestWidth] = useState(0);
+  // Bumped on focus / pull-to-refresh to reload live cards.
+  const [liveKey, setLiveKey] = useState(0);
+  useEffect(() => {
+    if (focused) setLiveKey((k) => k + 1);
+  }, [focused]);
 
   const points = profile?.cumulative_points;
   useEffect(() => {
@@ -80,6 +88,7 @@ export function HomeScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
+    setLiveKey((k) => k + 1);
     await Promise.all([refreshAll(), useWeatherStore.getState().load({ force: true })]);
     setRefreshing(false);
   };
@@ -110,6 +119,7 @@ export function HomeScreen() {
 
   const { level, streak, week, series, forest, summary } = stats;
   const recent = trips.slice(0, 3);
+  const challenges = useMemo(() => evaluateChallenges(trips), [trips]);
 
   return (
     <ScreenContainer onRefresh={() => void onRefresh()} refreshing={refreshing}>
@@ -206,6 +216,22 @@ export function HomeScreen() {
 
       <WeatherCoachCard onPlan={planWithMode} />
 
+      {/* Daily commute, live */}
+      {home && work ? (
+        <>
+          <SectionHeader title="Mon trajet quotidien" />
+          <CommuteCard
+            home={home}
+            work={work}
+            refreshKey={liveKey}
+            onOpen={(from, to) => {
+              requestRoute({ from, to, mode: "publicTransit" });
+              navigation.navigate("Route");
+            }}
+          />
+        </>
+      ) : null}
+
       {/* Real-time departures (IDFM) */}
       {firstStop ? (
         <>
@@ -262,8 +288,12 @@ export function HomeScreen() {
         ))}
       </View>
 
+      {/* Weekly challenges */}
+      <SectionHeader title="Défis de la semaine" />
+      <ChallengesCard challenges={challenges} daysLeft={daysLeftInWeek(new Date())} />
+
       {/* Weekly chart */}
-      <SectionHeader title="Cette semaine" />
+      <SectionHeader title="Cette semaine" actionLabel="Mon bilan" onAction={() => navigation.navigate("Recap")} />
       <Card className="mb-4">
         <View className="mb-3 flex-row items-end justify-between">
           <View>

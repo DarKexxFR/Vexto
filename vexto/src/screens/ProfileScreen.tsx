@@ -219,6 +219,13 @@ export function ProfileScreen() {
         />
         <View className="h-px bg-line" />
         <Row
+          icon="calendar-outline"
+          title="Mon bilan du mois"
+          subtitle="CO₂ évité, modes, meilleure journée · à partager"
+          onPress={() => navigation.navigate("Recap")}
+        />
+        <View className="h-px bg-line" />
+        <Row
           icon="time-outline"
           title="Historique des trajets"
           subtitle={`${summary.totalTrips} ${pluralize(summary.totalTrips, "trajet", "trajets")}`}
